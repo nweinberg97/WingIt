@@ -39,7 +39,8 @@ export class Controller {
     this.prefetching = false;
     this.gate = false; // show the "wake the coach" prompt
     this.inputMode = 'voice'; // voice | type
-    this.warming = false; // background download about to start
+    this.warming = false; // background load about to start
+    this.askedThisVisit = false;
     this.pendingSubmitAfterWake = false;
     this.listeners = new Set();
     this.ticker = null;
@@ -79,7 +80,7 @@ export class Controller {
     this.warmUp();
   }
 
-  /** True on mobile data or Data Saver, where a surprise 1 GB download isn't OK. */
+  /** True on mobile data or Data Saver (used to warn before a big download). */
   isMetered() {
     const c = this.connection;
     if (!c) return false;
@@ -87,14 +88,14 @@ export class Controller {
   }
 
   /**
-   * Get the models ready in the background as soon as play starts, so nobody has to press
-   * "download". Cached models just wake up. On metered connections we only wake cached ones
-   * and ask before downloading anything new.
+   * Nothing is downloaded without the player's say-so. If they already agreed (or the coach is
+   * already saved in this browser), the models get ready quietly in the background. Otherwise
+   * the one-time setup prompt explains what will be saved before anything is fetched.
    */
   async warmUp() {
     if (this.coach.status !== 'idle' || this.warming) return;
-    const auto = this.settings.autoDownload && !this.isMetered();
-    this.warming = auto; // an answer submitted now should wait for this download, not prompt
+    const consented = this.settings.modelsConsent;
+    this.warming = consented; // an answer submitted now should wait for this load, not prompt
     let cached = false;
     try {
       cached = await this.coach.checkCached();
@@ -102,18 +103,34 @@ export class Controller {
       /* treat as not cached */
     }
     try {
-      if (this.coach.status !== 'idle' || this.coach.gpuOk === false) return;
-      if (auto || cached) {
-        if (auto) this.transcriber.load().catch(() => {});
+      if (this.coach.status !== 'idle') return;
+      if (this.coach.gpuOk === false) {
+        if (consented) this.transcriber.load().catch(() => {});
+        return;
+      }
+      if (consented || cached) {
+        if (consented) this.transcriber.load().catch(() => {});
         const p = this.wakeCoach({ silent: true });
         this.warming = false;
         await p;
+      } else if (this.view === 'game' && !this.askedThisVisit) {
+        this.askedThisVisit = true;
+        this.gate = true; // ask up front, before the first round
       }
     } finally {
       this.warming = false;
       this.emit('coach');
     }
   }
+
+  /** The player agreed to save the models (optionally the smaller coach). */
+  acceptDownload({ lite = false } = {}) {
+    this.updateSettings({ modelsConsent: true, ...(lite ? { coachModel: 'qwen2.5-0.5b' } : {}) });
+    this.gate = false;
+    this.transcriber.load().catch(() => {});
+    return this.wakeCoach({ thenSubmit: this.state.phase === 'review' });
+  }
+
   async goHome() {
     await this.cancelRecording();
     this.view = 'home';
@@ -215,6 +232,12 @@ export class Controller {
   async toggleMic() {
     if (this.state.phase === 'recording') return this.stopRecording();
     if (!['ready', 'review'].includes(this.state.phase)) return;
+    if (!this.settings.modelsConsent) {
+      // Voice needs the speech model, which is part of the one-time download: ask first.
+      this.gate = true;
+      this.emit('gate');
+      return;
+    }
     return this.startRecording();
   }
 
@@ -434,6 +457,7 @@ export class Controller {
   async deleteModelDownloads() {
     await this.unloadModels();
     const n = await clearModelCaches();
+    this.updateSettings({ modelsConsent: false }); // deleted means ask again before re-downloading
     this.coach.set({ cached: false });
     this.emit('models');
     return n;

@@ -140,6 +140,36 @@ def primary_flow_voice(browser, base):
 
 
 @case
+def first_visit_asks_before_downloading(browser, base):
+    page = new_page(browser, base, "?fresh=1")
+    page.get_by_role("button", name="Start playing").click()
+    wait_kind(page, "gate")
+    dlg = page.get_by_role("dialog")
+    expect(dlg).to_contain_text("One-time setup")
+    expect(dlg).to_contain_text("Delete them anytime in Settings")
+    expect(page.locator("#wake-btn")).to_contain_text("Download (about 1.1 GB)")
+    assert page.evaluate("window.__e2e.chatCalls") == 0
+    page.wait_for_timeout(500)
+    page.screenshot(path=str(SHOTS / "setup-prompt.png"))
+    # Not now: nothing downloads, the prompt card is still playable.
+    page.get_by_role("button", name="Not now").click()
+    expect(page.locator(".wait-overlay")).to_have_count(0)
+    expect(page.locator(".coach-chip")).to_have_text("Coach not set up")
+    # The mic needs the speech model too, so it asks again instead of recording.
+    page.get_by_role("button", name="Start talking").click()
+    wait_kind(page, "gate")
+    assert page.evaluate("window.__e2e.tracks.length") == 0, "mic must not open before consent"
+    # Agree to the smaller download: the coach gets ready while you play.
+    page.locator("#lite-btn").click()
+    expect(page.locator(".wait-overlay")).to_have_count(0)
+    expect(page.locator(".coach-chip")).to_have_text("Coach ready", timeout=5000)
+    page.reload()
+    page.get_by_role("button", name="Start playing").click()
+    page.wait_for_timeout(400)
+    expect(page.locator(".wait-overlay")).to_have_count(0)  # remembered: no second prompt
+
+
+@case
 def comedy_show_jokes(browser, base):
     page = new_page(browser, base, "?slow=12000")
     page.get_by_role("button", name="Start playing").click()
@@ -245,16 +275,20 @@ def check_transcript_setting(browser, base):
 
 @case
 def gate_not_now_keeps_transcript(browser, base):
-    page = new_page(browser, base, "?metered=1")
+    page = new_page(browser, base, "?fresh=1")
     page.get_by_role("button", name="Start playing").click()
-    page.get_by_role("button", name="Start talking").click()
-    page.locator("#finish-btn").click()
     wait_kind(page, "gate")
-    expect(page.get_by_role("dialog")).to_contain_text("mobile data or Data Saver")
+    expect(page.get_by_role("dialog")).to_contain_text("One-time setup")
     assert "null" not in page.locator(".wait-box").inner_text()
     page.wait_for_timeout(500)
     page.screenshot(path=str(SHOTS / "gate-desktop.png"))
     page.keyboard.press("Escape")
+    expect(page.locator(".wait-overlay")).to_have_count(0)
+    page.get_by_role("button", name="Rather type?").click()
+    page.locator("#answer").fill("The pigeons have formed a union and they want bread.")
+    page.locator("#submit-btn").click()
+    wait_kind(page, "gate")
+    page.get_by_role("button", name="Not now").click()
     expect(page.locator(".wait-overlay")).to_have_count(0)
     expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.")
 
@@ -335,28 +369,29 @@ def stop_waiting_and_edit(browser, base):
 
 @case
 def keyboard_only_round(browser, base):
-    page = new_page(browser, base, "?metered=1")
+    page = new_page(browser, base, "?fresh=1")
     page.keyboard.press("Tab")
-    for _ in range(5):
+    for _ in range(6):
         if page.evaluate("document.activeElement.id") == "start-playing":
             break
         page.keyboard.press("Tab")
     assert page.evaluate("document.activeElement.id") == "start-playing"
     page.keyboard.press("Enter")
-    expect(page.locator("#mic-btn")).to_be_focused()
-    page.keyboard.press("Enter")
-    expect(page.locator("#finish-btn")).to_be_focused()
-    page.keyboard.press("Enter")
+    # First visit: the setup prompt takes focus, and focus is trapped inside it.
     wait_kind(page, "gate")
     expect(page.locator("#wake-btn")).to_be_focused()
-    # focus is trapped inside the pop-up
     for _ in range(6):
         page.keyboard.press("Tab")
         assert page.evaluate("!!document.activeElement.closest('.wait-overlay')")
     page.locator("#wake-btn").focus()
     page.keyboard.press("Enter")
+    expect(page.locator(".wait-overlay")).to_have_count(0)
+    expect(page.locator("#mic-btn")).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(page.locator("#finish-btn")).to_be_focused()
+    page.keyboard.press("Enter")
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
-    expect(page.locator(".feedback-slot")).to_be_focused()
+    expect(page.locator(".feedback-slot")).to_be_focused(timeout=4000)
     page.keyboard.press("Tab")
     outline = page.evaluate("getComputedStyle(document.activeElement).outlineStyle")
     assert outline != "none", outline

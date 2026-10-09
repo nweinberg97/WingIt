@@ -3,6 +3,7 @@
 // lands with a jump, a rimshot, confetti and laughs. It also hosts the one-time coach download prompt.
 import { h, append } from './dom.js';
 import { COACH_MODELS } from '../ai/coach.js';
+import { TRANSCRIBE_MODELS } from '../speech/transcriber.js';
 import { shuffledJokes } from './jokes.js';
 import { createStageShow } from './stage-show.js';
 
@@ -32,11 +33,12 @@ export class WaitingPopup {
     const s = ctl.state;
     const c = ctl.coach;
     if (s.phase === 'evaluating') return 'thinking';
-    if (s.phase !== 'review') return null;
+    if (s.phase !== 'review' && s.phase !== 'ready') return null;
     if (ctl.pendingSubmitAfterWake && (c.status === 'loading' || ctl.warming)) return 'loading';
-    if (ctl.gate && c.status === 'unsupported') return 'unsupported';
-    if (ctl.gate && c.status !== 'ready') return c.status === 'loading' ? 'loading' : 'gate';
-    return null;
+    if (!ctl.gate) return null;
+    if (c.status === 'unsupported') return 'unsupported';
+    if (c.status === 'loading' || c.status === 'ready') return null; // already agreed; keep playing
+    return 'gate';
   }
 
   sync() {
@@ -167,24 +169,40 @@ export class WaitingPopup {
   }
 
   renderGate(box) {
-    const c = this.ctl.coach;
-    const m = COACH_MODELS[c.modelKey];
+    const { ctl } = this;
+    const c = ctl.coach;
+    const std = COACH_MODELS['qwen2.5-1.5b'];
+    const lite = COACH_MODELS['qwen2.5-0.5b'];
+    const speechMB = TRANSCRIBE_MODELS[ctl.settings.transcribeModel]?.sizeMB ?? 77;
+    const gb = (coachGB) => (coachGB + speechMB / 1000).toFixed(1);
     this.show = createStageShow();
+    if (c.cached) {
+      append(box, [
+        h('div.stage-frame', {}, this.show.el),
+        h('h2.wait-title', { id: 'wait-title', text: 'Wake up your coach' }),
+        h('p.wait-text', { text: 'Your coach is already saved in this browser. Waking it takes a few seconds, with no new download.' }),
+        c.status === 'error' && c.error ? h('p.wait-error', { text: c.error.message }) : null,
+        h('div.wait-actions', {},
+          h('button.btn.btn-primary', { type: 'button', id: 'wake-btn', dataset: { autofocus: '' }, onclick: () => ctl.acceptDownload() }, 'Wake the coach'),
+          h('button.btn.btn-ghost', { type: 'button', onclick: () => ctl.dismissGate() }, 'Not now')),
+      ]);
+      return;
+    }
     append(box, [
       h('div.stage-frame', {}, this.show.el),
-      h('h2.wait-title', { id: 'wait-title', text: c.cached ? 'Wake up your coach' : 'One quick thing: meet your coach' }),
-      h('p.wait-text', {
-        text: c.cached
-          ? `${m.label} is already on this device. Waking it takes a few seconds.`
-          : `${this.ctl.isMetered() ? 'Looks like you\'re on mobile data or Data Saver, so we didn\'t start this automatically. ' : ''}Feedback comes from ${m.label}, an open AI model that runs inside your browser. It's a one-time download of about ${m.approxDownloadGB} GB, then it works offline. Your answer never leaves this device.`,
-      }),
+      h('h2.wait-title', { id: 'wait-title', text: 'One-time setup' }),
+      h('p.wait-text', { text: 'WingIt listens and gives feedback using open AI models that run privately on your device. Nothing you say is sent anywhere.' }),
+      h('ul.setup-facts', {},
+        h('li', { text: `Your browser saves them once, about ${gb(std.approxDownloadGB)} GB, like a game download. Later visits start in seconds, even offline.` }),
+        h('li', { text: 'They\'re stored only in this browser, never installed on your computer. Delete them anytime in Settings.' }),
+        ctl.isMetered() ? h('li.setup-warn', { text: 'You seem to be on mobile data or Data Saver. Wi-Fi is a good idea for this.' }) : null),
       c.status === 'error' && c.error ? h('p.wait-error', { text: c.error.message }) : null,
       h(
         'div.wait-actions',
         {},
-        h('button.btn.btn-primary', { type: 'button', id: 'wake-btn', dataset: { autofocus: '' }, onclick: () => this.ctl.wakeCoach({ thenSubmit: true }) }, c.cached ? 'Wake the coach' : `Download coach (≈${m.approxDownloadGB} GB)`),
-        h('button.btn.btn-ghost', { type: 'button', onclick: () => this.ui.openSettings() }, 'Pick a smaller model'),
-        h('button.btn.btn-ghost', { type: 'button', onclick: () => this.ctl.dismissGate() }, 'Not now'),
+        h('button.btn.btn-primary', { type: 'button', id: 'wake-btn', dataset: { autofocus: '' }, onclick: () => ctl.acceptDownload() }, `Download (about ${gb(std.approxDownloadGB)} GB)`),
+        h('button.btn.btn-small', { type: 'button', id: 'lite-btn', onclick: () => ctl.acceptDownload({ lite: true }) }, `Smaller download (about ${gb(lite.approxDownloadGB)} GB, simpler feedback)`),
+        h('button.btn.btn-ghost', { type: 'button', onclick: () => ctl.dismissGate() }, 'Not now'),
       ),
     ]);
   }

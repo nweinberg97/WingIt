@@ -104,10 +104,10 @@ Browser mic ─► AudioWorklet (PCM in memory) ─► resample to 16 kHz ─►
 ## 4. Setup
 
 ### For players
-Open the hosted page in a recent desktop Chrome or Edge, Chrome on Android, or Safari 26+, and tap **Start playing**. There is nothing to install and no download button.
-- When play starts, the speech model (~77 MB) and the coach (~1 GB for the default) download **in the background** while you read the prompt and talk. If you finish before the coach is ready, the waiting show runs with a progress bar and your answer is sent the moment it's ready.
-- Later visits load from the browser cache in seconds, even offline.
-- **On mobile data or Data Saver** nothing new downloads automatically; the app asks first. Models that are already downloaded still wake up. The automatic download can be switched off in Settings.
+Open the hosted page in a recent desktop Chrome or Edge, Chrome on Android, or Safari 26+, and tap **Start playing**. Nothing is installed.
+- **Nothing downloads without asking.** On the first visit, a one-time setup prompt explains that the speech model and the coach run privately on the device, so the browser needs to save them once. The default is about 1.1 GB; a smaller option is about 0.5 GB, with simpler feedback. The player chooses **Download**, **Smaller download**, or **Not now**.
+- After they agree, the models load in the background while they play. If they finish an answer before the coach is ready, the waiting show runs with a progress bar and the answer is sent as soon as it's ready.
+- The choice is remembered. Later visits load from the browser cache in seconds, even offline. **Delete downloaded models** in Settings removes the files and resets the choice, so nothing re-downloads without asking again.
 
 ### Host it (GitHub Pages, free)
 Repository **Settings → Pages → Deploy from a branch → `main` / root**. That's it: no build. The `.nojekyll` file is included.
@@ -136,8 +136,8 @@ CI runs all three (`.github/workflows/test.yml`).
 | --- | --- | --- |
 | Static checks (`scripts/check.mjs`) | ✅ 29 files | Real |
 | Unit (`tests/unit.test.js`) | ✅ | Real code: modes and rubrics, deck generation and repetition avoidance, scenario validation and safety, feedback validation (incl. fabricated-quote removal and malformed JSON), answer validation, prompt-injection wrapping, state machine and stale tokens, persistence and corruption handling, cache clearing, resampling |
-| Integration (`tests/integration.test.js`) | ✅ (92 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
-| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 19/19 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
+| Integration (`tests/integration.test.js`) | ✅ (95 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
+| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 20/20 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
 
 **Not verified in this build environment.** Its network blocks jsDelivr and Hugging Face, so these need a manual check on a real device:
 - [ ] Real Whisper download and transcription quality (`base.en` and `tiny.en`).

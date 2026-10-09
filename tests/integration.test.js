@@ -11,7 +11,8 @@ import { MemoryStorage, fakeRuntime, gpuOk, gpuMissing, goodFeedback, FakeTransc
 
 function makeController({ runtime, gpu = gpuOk, transcriber = new FakeTranscriber(), mic = () => new FakeMic(), settings, connection = null } = {}) {
   const store = new Store({ local: new MemoryStorage(), session: new MemoryStorage() });
-  if (settings) store.saveSettings(settings);
+  // Tests play as a player who already agreed to the download unless they say otherwise.
+  store.saveSettings({ modelsConsent: true, ...(settings ?? {}) });
   const coach = new Coach({ runtime: runtime ?? fakeRuntime(), gpuDetector: gpu });
   const ctl = new Controller({ store, coach, transcriber, micFactory: mic, rng: makeRng(11), connection });
   return { ctl, store, coach };
@@ -433,55 +434,86 @@ describe('controller: scenarios, persistence, settings', () => {
   });
 });
 
-describe('controller: background model download', () => {
-  test('starting play downloads the coach automatically, no prompt', async () => {
+describe('controller: download consent', () => {
+  test('nothing downloads before the player agrees; the setup prompt asks up front', async () => {
     const rt = fakeRuntime();
-    const { ctl } = makeController({ runtime: rt });
+    const tr = new FakeTranscriber();
+    tr.status = 'idle';
+    let speechLoads = 0;
+    tr.load = async () => { speechLoads += 1; };
+    const { ctl } = makeController({ runtime: rt, transcriber: tr, settings: { modelsConsent: false } });
+    ctl.startGame();
+    await until(() => ctl.gate === true);
+    assert.equal(rt.loads, 0);
+    assert.equal(speechLoads, 0);
+  });
+
+  test('the mic asks first too, because voice needs the speech model', async () => {
+    const tr = new FakeTranscriber();
+    tr.status = 'idle';
+    const mic = new FakeMic();
+    const { ctl } = makeController({ transcriber: tr, mic: () => mic, settings: { modelsConsent: false } });
+    ctl.startGame();
+    ctl.dismissGate();
+    await ctl.toggleMic();
+    assert.equal(mic.started, false);
+    assert.equal(ctl.gate, true);
+  });
+
+  test('agreeing downloads both models and remembers the answer', async () => {
+    const rt = fakeRuntime();
+    const { ctl, store } = makeController({ runtime: rt, settings: { modelsConsent: false } });
+    ctl.startGame();
+    await until(() => ctl.gate === true);
+    await ctl.acceptDownload();
+    assert.equal(ctl.coach.status, 'ready');
+    assert.equal(store.getSettings().modelsConsent, true);
+  });
+
+  test('the smaller option switches to the lite coach', async () => {
+    const rt = fakeRuntime();
+    const { ctl, store } = makeController({ runtime: rt, settings: { modelsConsent: false } });
+    ctl.startGame();
+    await ctl.acceptDownload({ lite: true });
+    assert.equal(store.getSettings().coachModel, 'qwen2.5-0.5b');
+  });
+
+  test('after agreeing once, later visits get ready quietly with no prompt', async () => {
+    const rt = fakeRuntime();
+    const { ctl } = makeController({ runtime: rt, settings: { modelsConsent: true } });
     ctl.startGame();
     await until(() => ctl.coach.status === 'ready');
-    assert.equal(rt.loads, 1);
     assert.equal(ctl.gate, false);
   });
 
-  test('an answer finished mid-download is sent as soon as the coach is ready', async () => {
+  test('an already-saved coach wakes up without asking', async () => {
+    const rt = fakeRuntime();
+    rt.cached = true;
+    const { ctl } = makeController({ runtime: rt, settings: { modelsConsent: false } });
+    ctl.startGame();
+    await until(() => ctl.coach.status === 'ready');
+    assert.equal(ctl.gate, false);
+  });
+
+  test('an answer finished while the coach is still loading is sent when it is ready', async () => {
     const rt = fakeRuntime({ responses: [goodFeedback('think-fast')] });
     const slowLoad = rt.load;
     rt.load = async (...a) => {
       await tick(60);
       return slowLoad(...a);
     };
-    const { ctl } = makeController({ runtime: rt, settings: { scenarioSource: 'deck' } });
+    const { ctl } = makeController({ runtime: rt, settings: { scenarioSource: 'deck', modelsConsent: true } });
     ctl.startGame('think-fast');
     ctl.edit('A quick answer.');
     await ctl.submit();
     assert.notEqual(ctl.coach.status, 'ready');
-    assert.equal(ctl.pendingSubmitAfterWake, true, 'waits for the download instead of prompting');
+    assert.equal(ctl.pendingSubmitAfterWake, true, 'waits for the coach instead of prompting');
     await until(() => ctl.state.phase === 'feedback');
   });
 
-  test('on mobile data or Data Saver, nothing new downloads without asking', async () => {
-    const rt = fakeRuntime();
-    const { ctl } = makeController({ runtime: rt, connection: { saveData: true } });
-    ctl.startGame();
-    await tick(30);
-    assert.equal(rt.loads, 0);
-    assert.equal(ctl.coach.status, 'idle');
-    assert.equal(ctl.isMetered(), true);
-  });
-
-  test('on mobile data, an already-downloaded coach still wakes up', async () => {
-    const rt = fakeRuntime();
-    rt.cached = true;
-    const { ctl } = makeController({ runtime: rt, connection: { type: 'cellular' } });
-    ctl.startGame();
-    await until(() => ctl.coach.status === 'ready');
-  });
-
-  test('the automatic download can be switched off', async () => {
-    const rt = fakeRuntime();
-    const { ctl } = makeController({ runtime: rt, settings: { autoDownload: false } });
-    ctl.startGame();
-    await tick(30);
-    assert.equal(rt.loads, 0);
+  test('deleting the models resets consent, so nothing re-downloads silently', async () => {
+    const { ctl, store } = makeController({ settings: { modelsConsent: true } });
+    await ctl.deleteModelDownloads();
+    assert.equal(store.getSettings().modelsConsent, false);
   });
 });

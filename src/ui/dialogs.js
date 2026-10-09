@@ -74,7 +74,6 @@ export function openSettings(ctl, ui) {
     {},
     h('h3', { text: 'Play' }),
     toggle('Challenge timer', 'Adds a countdown to each answer (length depends on the mode). Recording stops when it hits zero.', st.timer, (v) => ctl.updateSettings({ timer: v })),
-    toggle('Get the coach ready automatically', 'Downloads the AI coach in the background when you start playing (about 1 GB, once). Skipped on mobile data and Data Saver.', st.autoDownload, (v) => ctl.updateSettings({ autoDownload: v })),
     toggle('Check my transcript before sending', 'When on, Finish shows your transcript so you can fix it first. When off, it goes straight to your coach.', st.reviewBeforeSend, (v) => ctl.updateSettings({ reviewBeforeSend: v })),
     toggle('Live transcript preview', 'Shows rough text while you talk. Uses a little more processing power.', st.livePreview, (v) => ctl.updateSettings({ livePreview: v })),
     radioGroup('src', 'Where scenarios come from', [

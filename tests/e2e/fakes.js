@@ -12,6 +12,16 @@
 
   window.__e2e = { chatCalls: 0, transcribed: [], tracks: [] };
 
+  // Most tests play as a returning player who already agreed to the one-time download.
+  // ?fresh=1 starts as a brand-new visitor instead.
+  if (params.get('fresh') !== '1') {
+    try {
+      const key = 'wingit:settings';
+      const cur = JSON.parse(localStorage.getItem(key) || '{}');
+      if (!('modelsConsent' in cur)) localStorage.setItem(key, JSON.stringify({ ...cur, modelsConsent: true }));
+    } catch {}
+  }
+
   function feedbackFor(messages) {
     const sys = messages[0].content;
     const dims = [...sys.matchAll(/^- "([a-z-]+)"/gm)].map((m) => m[1]);

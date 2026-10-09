@@ -380,6 +380,11 @@ body.no-scroll { overflow: hidden; }
 .wait-error { color: var(--coral); font-weight: 700; }
 .wait-actions { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
 .wait-actions .btn-primary { width: 100%; }
+.wait-actions .btn-small { width: 100%; white-space: normal; }
+.setup-facts { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: var(--step--1); color: var(--ink-2); }
+.setup-facts li { padding-left: 22px; position: relative; }
+.setup-facts li::before { content: "✓"; position: absolute; left: 0; font-weight: 900; color: var(--ok); }
+.setup-facts .setup-warn::before { content: "!"; color: var(--coral); }
 
 /* The waiting show: Mic, a microphone comedian, under a spotlight between velvet curtains.
    Idle loops run in CSS; the pop-up sets data-beat="talk" while a joke types out and
