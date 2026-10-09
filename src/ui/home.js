@@ -45,7 +45,7 @@ export function renderHome(ctl, ui) {
         h('button.btn.btn-primary.btn-xl', { type: 'button', onclick: () => ctl.startGame(), id: 'start-playing' }, 'Start playing'),
         h('button.btn.btn-ghost', { type: 'button', onclick: drawSample }, icon('shuffle'), 'Deal a sample'),
       ),
-      h('p.privacy-line', {}, icon('lock', { size: 16 }), 'Your voice stays on this device. Speech is turned into text in your browser; audio is never uploaded or saved.'),
+      h('p.privacy-line', {}, icon('lock', { size: 16 }), h('span', {}, 'Your voice stays on this device. Speech is turned into text in your browser; audio is never uploaded or saved. ', h('button.link-btn', { type: 'button', onclick: () => ui.openSafety() }, 'Is it safe?'))),
     ),
     cardSlot,
   );

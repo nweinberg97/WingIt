@@ -108,7 +108,7 @@ export class GameView {
       this.composer,
       this.youSaid,
       this.errorSlot,
-      h('p.privacy-note', {}, icon('lock', { size: 14 }), 'Your voice stays on this device. It\'s turned into text right here in your browser, then the audio is thrown away.'),
+      h('p.privacy-note', {}, icon('lock', { size: 14 }), h('span', {}, 'Your voice stays on this device. It\'s turned into text right here in your browser, then the audio is thrown away. ', h('button.link-btn', { type: 'button', onclick: () => this.ui.openSafety() }, 'How we keep you safe'))),
     );
 
     // 3. Feedback

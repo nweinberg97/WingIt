@@ -1,6 +1,7 @@
 name: vendor
-# Copies WingIt's libraries into vendor/, pins every model to an exact commit, and records the
-# SHA-256 of every file in vendor/integrity.json. Runs when the pinned versions change, or by hand.
+# Pins WingIt's third-party files: locks the exact library dependency tree, pins every model to a
+# Hugging Face commit, and records the SHA-256 of every file in vendor/integrity.json.
+# Runs when the pinned versions change, or by hand. Then redeploys the site.
 on:
   workflow_dispatch:
   push:
@@ -11,33 +12,38 @@ on:
       - .github/workflows/vendor.yml
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: vendor
   cancel-in-progress: false
 jobs:
-  vendor:
+  pin:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build vendor/ and integrity manifest
+      - name: Pin libraries and models, record fingerprints
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -o pipefail
-          node scripts/vendor.mjs 2>&1 | tee vendor.log || { echo "::error title=vendor failed::$(tail -c 900 vendor.log | tr '\n' ' ')"; exit 1; }
-      - name: Show what changed
-        run: |
-          echo "::notice title=vendor sizes::$(du -sh vendor vendor/* | tr '\n' ' ')"
+          node scripts/vendor.mjs pin 2>&1 | tee vendor.log || { echo "::error title=vendor pin failed::$(tail -c 900 vendor.log | tr '\n' ' ')"; exit 1; }
           echo "::notice title=manifest::$(node -e "const m=require('./vendor/integrity.json');console.log(Object.keys(m.files).length+' files, version '+m.version)")"
-      - name: Commit
+          echo "::notice title=sizes::$(du -sh vendor/* | tr '\n' ' ')"
+      - name: Commit the lock and manifest
         run: |
           git config user.name "wingit-vendor-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add vendor
+          git add vendor/integrity.json vendor/lock
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
-          git commit -q -m "Vendor pinned libraries and integrity manifest"
+          git commit -q -m "Pin third-party files and record their SHA-256 fingerprints"
           if ! out=$(git push 2>&1); then
             echo "::error title=push failed::$(echo "$out" | tr '\n' ' ' | cut -c1-900)"
             exit 1
           fi
+      - name: Redeploy the site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run pages.yml --ref main

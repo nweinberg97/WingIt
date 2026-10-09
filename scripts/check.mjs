@@ -35,8 +35,23 @@ for (const f of files.filter((f) => f.startsWith('src'))) {
   if (/console\.log\(/.test(src)) fail(`${f}: stray console.log`);
   if (/localStorage|sessionStorage|indexedDB/.test(src) && !/store\.js$/.test(f)) fail(`${f}: persistence must go through src/store.js`);
   if (/api\.openai|anthropic\.com|generativelanguage|api\.groq|replicate\.com|api-inference\.huggingface/.test(src)) fail(`${f}: remote AI API referenced`);
-  if (/https:\/\/(?!cdn\.jsdelivr\.net\/npm\/@(mlc-ai\/web-llm|huggingface\/transformers)@\d)/.test(src.replace(/\/\/.*$/gm, ''))) fail(`${f}: unexpected or unpinned remote URL`);
+  // Only these remote origins may appear in app code: pinned model downloads (checked by the
+  // integrity guard) and a plain link to the source repo. No code may load from a CDN.
+  const code = src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  for (const m of code.matchAll(/https?:\/\/[^\s'"`)]+/g)) {
+    const u = m[0];
+    const ok = /^https:\/\/huggingface\.co\/(\$\{|api\/)?/.test(u) || /^https:\/\/github\.com\/nweinberg97\/wingit/.test(u) || /^http:\/\/www\.w3\.org\/2000\/svg/.test(u);
+    if (!ok) fail(`${f}: remote URL not allowed in app code: ${u}`);
+  }
 }
+
+// The page may only run scripts from its own site.
+const html = readFileSync('index.html', 'utf8');
+const csp = (html.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || '';
+const scriptSrc = (csp.match(/script-src ([^;]+)/) || [])[1] || '';
+if (!csp) fail('index.html: missing Content-Security-Policy');
+else if (scriptSrc.trim() !== "'self' 'wasm-unsafe-eval'") fail(`index.html: script-src must be 'self' only, got: ${scriptSrc}`);
+if (/connect-src[^;]*(jsdelivr|unpkg|githubusercontent)/.test(csp)) fail('index.html: connect-src allows a code CDN');
 
 // The capture module must never write audio anywhere.
 const capture = readFileSync('src/speech/capture.js', 'utf8');

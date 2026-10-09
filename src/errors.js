@@ -17,6 +17,8 @@ const COPY = {
   download: { title: 'Coach model didn\'t download', body: 'Check your connection and storage space, then try again. Downloads resume from the browser cache.' },
   model: { title: 'The coach couldn\'t start', body: 'Reload the page and try again, or switch to a smaller coach model in Settings.' },
   timeout: { title: 'The coach took too long', body: 'Your answer is still here. Try again, or switch to the Lite coach model if this keeps happening.' },
+  guard: { title: 'Safety check is off, so the AI is off', body: 'WingIt only runs AI files after checking their fingerprints, and this browser blocked that check (common in private browsing). Open WingIt in a normal window to use voice and feedback. You can still read prompts and practise.' },
+  'integrity-blocked': { title: 'A file was blocked', body: 'A downloaded file didn\'t match its fingerprint, so WingIt refused to use it. Nothing ran. Try again later; if it keeps happening, the file source may have been tampered with.' },
   'invalid-output': { title: 'The coach got tongue-tied', body: 'Its feedback didn\'t come back in a usable shape. Your answer is still here; try again.' },
 };
 

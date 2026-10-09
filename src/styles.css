@@ -543,6 +543,26 @@ body.no-scroll { overflow: hidden; }
 .fb-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 2px dashed var(--line); }
 .fb-provenance { margin-top: 12px; font-size: 0.8rem; color: var(--ink-3); }
 
+/* ---------- safety explainer ---------- */
+.link-btn { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px; cursor: pointer; min-height: 24px; }
+.link-btn:hover { text-decoration-color: var(--coral); }
+.safety-link { margin-top: 2px; font-size: var(--step--1); color: var(--ink-2); }
+.safety { display: flex; flex-direction: column; gap: 8px; }
+.safety p { max-width: 62ch; }
+.safety-status { border: 2px solid var(--ink); border-radius: var(--radius-s); padding: 12px 14px; background: var(--paper); display: flex; flex-direction: column; gap: 4px; }
+.safety-status p { display: flex; gap: 8px; align-items: flex-start; }
+.safety-status .icon { flex: none; margin-top: 3px; }
+.safety-good { font-weight: 800; color: var(--ok); }
+.safety-bad { font-weight: 800; color: var(--coral); }
+.safety-steps { list-style: none; padding: 0 !important; display: flex; flex-direction: column; gap: 10px !important; }
+.safety-step { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
+.safety-num { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--mode, var(--coral)); color: #1b1240; font-weight: 900; border: 2px solid #211547; }
+.safety-step p { color: var(--ink-2); font-size: var(--step--1); }
+.safety-list li { color: var(--ink-2); }
+.safety-list strong { color: var(--ink); }
+.safety-links { margin-top: 8px; font-weight: 800; }
+.safety-links a { color: var(--ink); }
+
 /* ---------- dialogs ---------- */
 dialog.sheet {
   width: min(640px, calc(100vw - 24px)); max-height: min(88vh, 900px);

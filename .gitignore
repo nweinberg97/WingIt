@@ -2,3 +2,9 @@ tests/e2e/screenshots/
 node_modules/
 .DS_Store
 __pycache__/
+# Rebuilt and fingerprint-checked on every deploy; only the lock and manifest are committed.
+vendor/*
+!vendor/lock/
+!vendor/integrity.json
+vendor.log
+_site/

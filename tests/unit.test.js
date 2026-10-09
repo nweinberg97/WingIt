@@ -432,3 +432,36 @@ describe('waiting-room jokes', () => {
     assert.equal(new Set(s.map((j) => j.setup)).size, JOKES.length);
   });
 });
+
+describe('integrity guard helpers', async () => {
+  const { pinnedWebLLMConfig, IntegrityGuard } = await import('../src/security/guard.js');
+  const prebuilt = {
+    useIndexedDBCache: true,
+    model_list: [
+      { model_id: 'A-q4f16_1-MLC', model: 'https://huggingface.co/mlc-ai/A-q4f16_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/libs/main/A.wasm', vram_required_MB: 1 },
+      { model_id: 'Unpinned', model: 'https://huggingface.co/mlc-ai/Unpinned', model_lib: 'https://x/u.wasm' },
+    ],
+  };
+  const manifest = { pins: { webllm: { 'A-q4f16_1-MLC': { repo: 'mlc-ai/A-q4f16_1-MLC', revision: 'a'.repeat(40), lib: 'vendor/mlc/A.wasm' } } }, files: {} };
+
+  test('only pinned models are offered, at an exact revision, with our own copy of the library', () => {
+    const cfg = pinnedWebLLMConfig(manifest, prebuilt, 'https://example.github.io/wingit/');
+    assert.equal(cfg.model_list.length, 1);
+    const m = cfg.model_list[0];
+    assert.equal(m.model, `https://huggingface.co/mlc-ai/A-q4f16_1-MLC/resolve/${'a'.repeat(40)}/`);
+    assert.equal(m.model_lib, 'https://example.github.io/wingit/vendor/mlc/A.wasm');
+    assert.equal(m.vram_required_MB, 1);
+    assert.equal(cfg.useIndexedDBCache, false, 'Cache API, which the guard re-checks');
+  });
+
+  test('without service workers the guard refuses, so models stay off', async () => {
+    const g = new IntegrityGuard({ nav: {} });
+    await assert.rejects(g.ready(), (e) => e.code === 'guard');
+    assert.equal(g.status, 'unavailable');
+  });
+
+  test('a guard that cannot register refuses too', async () => {
+    const g = new IntegrityGuard({ nav: { serviceWorker: { addEventListener() {}, register: async () => { throw new Error('denied'); } } } });
+    await assert.rejects(g.ready(), (e) => e.code === 'guard');
+  });
+});

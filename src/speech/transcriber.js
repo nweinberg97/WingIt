@@ -7,7 +7,10 @@ export const TRANSCRIBE_MODELS = Object.freeze({
 export const DEFAULT_TRANSCRIBE_MODEL = 'whisper-base.en';
 
 export class LocalTranscriber {
-  constructor({ workerFactory } = {}) {
+  constructor({ workerFactory, beforeLoad = async () => {}, getManifest = async () => null } = {}) {
+    this.beforeLoad = beforeLoad;
+    this.getManifest = getManifest;
+    this.pin = null;
     this.workerFactory = workerFactory ?? (() => new Worker(new URL('./whisper-worker.js', import.meta.url), { type: 'module' }));
     this.worker = null;
     this.pending = new Map();
@@ -78,6 +81,7 @@ export class LocalTranscriber {
   setModel(key) {
     if (!TRANSCRIBE_MODELS[key] || key === this.modelKey) return;
     this.modelKey = key;
+    this.pin = null;
     if (this.status === 'ready') this.setStatus('idle');
   }
 
@@ -86,7 +90,13 @@ export class LocalTranscriber {
     this.progress.clear();
     this.setStatus('loading');
     try {
-      await this.call({ type: 'load', model: TRANSCRIBE_MODELS[this.modelKey].id });
+      // Nothing is fetched until the integrity guard protects the page, and only the pinned version.
+      await this.beforeLoad();
+      const manifest = await this.getManifest();
+      const pin = manifest?.pins?.speech?.[this.modelKey];
+      if (!pin) throw Object.assign(new Error('This copy of WingIt has no pinned speech model, so voice is switched off.'), { code: 'guard' });
+      this.pin = pin;
+      await this.call({ type: 'load', model: pin.repo, revision: pin.revision });
       this.setStatus('ready');
     } catch (err) {
       this.setStatus('error', { message: err.message });
@@ -103,7 +113,7 @@ export class LocalTranscriber {
     await this.load();
     this.busy = true;
     try {
-      const res = await this.call({ type: 'transcribe', model: TRANSCRIBE_MODELS[this.modelKey].id, audio: pcm, partial }, [pcm.buffer]);
+      const res = await this.call({ type: 'transcribe', model: this.pin.repo, revision: this.pin.revision, audio: pcm, partial }, [pcm.buffer]);
       return res.text;
     } finally {
       this.busy = false;

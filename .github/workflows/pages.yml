@@ -1,0 +1,46 @@
+name: pages
+# Deploys WingIt to GitHub Pages. Rebuilds vendor/ from the committed lock and refuses to deploy
+# unless every rebuilt file matches the SHA-256 recorded in vendor/integrity.json.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Rebuild and verify vendored files
+        run: |
+          set -o pipefail
+          if [ ! -f vendor/integrity.json ]; then echo "::warning::vendor/integrity.json not pinned yet; deploying without models"; exit 0; fi
+          node scripts/vendor.mjs build 2>&1 | tee vendor.log || { echo "::error title=verification failed::$(tail -c 900 vendor.log | tr '\n' ' ')"; exit 1; }
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r index.html sw.js .nojekyll assets src _site/
+          if [ -d vendor ]; then mkdir -p _site/vendor && cp -r vendor/* _site/vendor/ && rm -rf _site/vendor/lock; fi
+          echo "::notice title=site::$(du -sh _site | cut -f1)"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

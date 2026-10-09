@@ -1,6 +1,8 @@
 // Model lifecycle + serialized, cancellable, time-limited text generation.
 // The UI talks to Coach only; Coach talks to a runtime adapter (WebLLM by default).
 
+import { pinnedWebLLMConfig } from '../security/guard.js';
+
 export const COACH_MODELS = Object.freeze({
   'qwen2.5-1.5b': {
     label: 'Qwen2.5 1.5B Instruct',
@@ -38,6 +40,7 @@ export class CoachError extends Error {
 
 export function classifyError(err) {
   if (err instanceof CoachError) return err;
+  if (err?.code === 'guard') return new CoachError('guard', err.message);
   const m = String(err?.message ?? err).toLowerCase();
   if (/out of memory|oom|device (?:was )?lost|allocation|exceeds/.test(m)) return new CoachError('memory', 'Your device ran out of GPU memory for this model.');
   if (/webgpu|navigator\.gpu|adapter/.test(m)) return new CoachError('webgpu', 'WebGPU is not available in this browser.');
@@ -57,21 +60,35 @@ export async function detectGpu(nav = globalThis.navigator) {
   }
 }
 
-/** Default runtime: WebLLM in a module worker, loaded from a pinned CDN build. */
-export function createWebLLMRuntime() {
+/**
+ * Default runtime: WebLLM in a module worker. The library is served from this site (vendor/),
+ * every model is pinned to an exact Hugging Face commit, and nothing loads until the integrity
+ * guard is protecting the page, so every file is checked against its fingerprint on the way in.
+ */
+export function createWebLLMRuntime({ beforeLoad = async () => {}, getManifest = async () => null } = {}) {
   let engine = null;
   let lib = null;
+  let appConfig = null;
+  const libUrl = new URL('../../vendor/web-llm.js', import.meta.url).href;
+  async function prepare() {
+    await beforeLoad();
+    const manifest = await getManifest();
+    if (!manifest) throw new CoachError('guard', 'This copy of WingIt has no pinned model files, so the coach is switched off.');
+    lib ??= await import(libUrl);
+    appConfig ??= pinnedWebLLMConfig(manifest, lib.prebuiltAppConfig, document.baseURI);
+  }
   return {
     name: 'WebLLM',
     async load(modelId, onProgress) {
-      lib ??= await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.85/+esm');
+      await prepare();
+      if (!appConfig.model_list.some((m) => m.model_id === modelId)) throw new CoachError('guard', `${modelId} is not one of the pinned models.`);
       const cb = (r) => onProgress?.({ fraction: r.progress ?? 0, text: r.text ?? '' });
       if (engine) {
         engine.setInitProgressCallback?.(cb);
         await engine.reload(modelId);
       } else {
         const worker = new Worker(new URL('./webllm-worker.js', import.meta.url), { type: 'module' });
-        engine = await lib.CreateWebWorkerMLCEngine(worker, modelId, { initProgressCallback: cb });
+        engine = await lib.CreateWebWorkerMLCEngine(worker, modelId, { appConfig, initProgressCallback: cb });
       }
     },
     async chat(messages, { schema, temperature = 0.7, maxTokens = 700 }) {
@@ -83,8 +100,8 @@ export function createWebLLMRuntime() {
     },
     async isCached(modelId) {
       try {
-        lib ??= await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.85/+esm');
-        return await lib.hasModelInCache(modelId);
+        await prepare();
+        return await lib.hasModelInCache(modelId, appConfig);
       } catch {
         return false;
       }

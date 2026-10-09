@@ -1,6 +1,10 @@
 import { BRAND } from './brand.js';
 import { Controller } from './controller.js';
-import { Coach } from './ai/coach.js';
+import { Coach, createWebLLMRuntime } from './ai/coach.js';
+import { LocalTranscriber } from './speech/transcriber.js';
+import { IntegrityGuard, loadManifest } from './security/guard.js';
+import { openSafety } from './ui/safety.js';
+import { describeError } from './errors.js';
 import { renderHome } from './ui/home.js';
 import { GameView } from './ui/game.js';
 import { openSettings, openHelp, openHistory } from './ui/dialogs.js';
@@ -10,10 +14,15 @@ import { h, icon } from './ui/dom.js';
 // In normal use this is undefined and the real WebLLM / Whisper / microphone are used.
 const testHooks = globalThis.__WINGIT_TEST__;
 
-const coach = testHooks?.coachRuntime ? new Coach({ runtime: testHooks.coachRuntime, gpuDetector: testHooks.gpuDetector }) : new Coach({ gpuDetector: testHooks?.gpuDetector });
+// Integrity guard: no model or third-party file loads until it is protecting this page, and every
+// such file must match the SHA-256 fingerprint recorded in vendor/integrity.json.
+const guard = testHooks?.guard ?? new IntegrityGuard();
+const beforeLoad = () => guard.ready();
+const runtime = testHooks?.coachRuntime ?? createWebLLMRuntime({ beforeLoad, getManifest: loadManifest });
+const coach = new Coach({ runtime, gpuDetector: testHooks?.gpuDetector });
 const ctl = new Controller({
   coach,
-  transcriber: testHooks?.transcriber,
+  transcriber: testHooks?.transcriber ?? new LocalTranscriber({ beforeLoad, getManifest: loadManifest }),
   micFactory: testHooks?.micFactory,
   connection: testHooks?.connection,
 });
@@ -22,8 +31,10 @@ const root = document.getElementById('app');
 document.title = `${BRAND.name}: pocket improv gym`;
 
 const ui = {
+  guard,
+  openSafety: () => openSafety(ctl, ui),
   openSettings: () => openSettings(ctl, ui),
-  openHelp: () => openHelp(),
+  openHelp: () => openHelp(ui),
   openHistory: () => openHistory(ctl),
   reducedMotion() {
     const m = ctl.settings.motion;
@@ -88,6 +99,10 @@ function render(change) {
 }
 
 ctl.subscribe(render);
+// If the guard ever blocks a file, say so plainly.
+guard.on?.((ev) => {
+  if (ev.type === 'blocked' && ev.reason === 'hash-mismatch') ctl.dispatch({ type: 'SET_ERROR', error: describeError('integrity-blocked', ev.url) });
+});
 ui.applyPrefs();
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', ui.applyPrefs);
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', ui.applyPrefs);
@@ -113,4 +128,7 @@ addEventListener('keydown', (e) => {
   }
 });
 
-if (testHooks) globalThis.__WINGIT__ = ctl;
+if (testHooks) {
+  globalThis.__WINGIT__ = ctl;
+  globalThis.__WINGIT_GUARD__ = guard;
+}

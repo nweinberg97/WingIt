@@ -22,3 +22,5 @@ jobs:
           pip install playwright==1.56.0
           python -m playwright install --with-deps chromium
           python tests/e2e/run_e2e.py
+      - name: Integrity guard tests (real service worker)
+        run: python tests/e2e/run_guard.py

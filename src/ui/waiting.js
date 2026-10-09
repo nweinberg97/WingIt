@@ -204,6 +204,7 @@ export class WaitingPopup {
         h('button.btn.btn-small', { type: 'button', id: 'lite-btn', onclick: () => ctl.acceptDownload({ lite: true }) }, `Smaller download (about ${gb(lite.approxDownloadGB)} GB, simpler feedback)`),
         h('button.btn.btn-ghost', { type: 'button', onclick: () => ctl.dismissGate() }, 'Not now'),
       ),
+      h('button.link-btn.safety-link', { type: 'button', onclick: () => this.ui.openSafety() }, 'Is this safe? See how every file is checked'),
     ]);
   }
 

@@ -322,7 +322,7 @@ export class Controller {
       }
     } catch (err) {
       pcm = null;
-      const code = /fetch|network|download|404|403/i.test(err.message) ? 'transcribe-download' : 'transcribe-failed';
+      const code = err?.code === 'guard' ? 'guard' : /fetch|network|download|404|403/i.test(err.message) ? 'transcribe-download' : 'transcribe-failed';
       this.dispatch({ type: 'TRANSCRIBE_FAILED', token, error: describeError(code, err.message) });
     }
   }

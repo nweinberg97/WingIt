@@ -1,22 +1,29 @@
 // Module worker: runs Whisper locally with Transformers.js (ONNX Runtime Web, WASM).
 // Receives Float32Array PCM at 16 kHz, returns text. Audio never leaves this worker.
-const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1';
+// The library and its WebAssembly runtime come from this site (vendor/); the model is pinned to an
+// exact Hugging Face commit. The integrity guard checks every file against its fingerprint.
+const TRANSFORMERS_URL = new URL('../../vendor/transformers.js', import.meta.url).href;
+const ORT_DIR = new URL('../../vendor/ort/', import.meta.url).href;
 
 let lib = null;
 let asr = null;
 let loadedModel = null;
 let loading = null;
 
-async function ensure(model) {
-  if (asr && loadedModel === model) return asr;
+async function ensure(model, revision) {
+  const key = `${model}@${revision}`;
+  if (asr && loadedModel === key) return asr;
   if (loading) await loading.catch(() => {});
-  if (asr && loadedModel === model) return asr;
+  if (asr && loadedModel === key) return asr;
   loading = (async () => {
     lib ??= await import(TRANSFORMERS_URL);
     lib.env.allowLocalModels = false;
+    lib.env.backends.onnx.wasm.wasmPaths = ORT_DIR;
+    if (!/^[0-9a-f]{40}$/.test(revision || '')) throw new Error('Speech model is not pinned to an exact version.');
     if (asr?.dispose) await asr.dispose().catch(() => {});
     asr = null;
     asr = await lib.pipeline('automatic-speech-recognition', model, {
+      revision,
       device: 'wasm',
       dtype: 'q8',
       progress_callback: (p) => {
@@ -25,7 +32,7 @@ async function ensure(model) {
         }
       },
     });
-    loadedModel = model;
+    loadedModel = key;
     return asr;
   })();
   try {
@@ -39,10 +46,10 @@ self.onmessage = async (e) => {
   const msg = e.data;
   try {
     if (msg.type === 'load') {
-      await ensure(msg.model);
+      await ensure(msg.model, msg.revision);
       self.postMessage({ type: 'loaded', id: msg.id });
     } else if (msg.type === 'transcribe') {
-      const pipe = await ensure(msg.model);
+      const pipe = await ensure(msg.model, msg.revision);
       let audio = msg.audio; // Float32Array, transferred
       const out = await pipe(audio, { chunk_length_s: 30, stride_length_s: 5 });
       audio = null; // drop our reference to the PCM buffer immediately

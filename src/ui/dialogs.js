@@ -4,7 +4,7 @@ import { COACH_MODELS } from '../ai/coach.js';
 import { TRANSCRIBE_MODELS } from '../speech/transcriber.js';
 import { getMode, MODES } from '../modes.js';
 
-function dialogShell(title, body, onClose) {
+export function dialogShell(title, body, onClose) {
   const dlg = h('dialog.sheet', { 'aria-labelledby': 'dlg-title' });
   const close = () => dlg.close();
   dlg.append(
@@ -121,6 +121,10 @@ export function openSettings(ctl, ui) {
       }, 'Delete downloaded models'),
     ),
 
+    h('h3', { text: 'Safety' }),
+    h('p.small', { text: 'Every AI file is checked against its fingerprint before it runs, and nothing you say leaves this device.' }),
+    h('div.btn-row', {}, h('button.btn.btn-small', { type: 'button', onclick: () => ui.openSafety() }, 'How WingIt keeps you safe')),
+
     h('h3', { text: 'Your data' }),
     h('p.small', { text: 'Rounds played, average scores and favourites are kept in this browser only. Answers and audio are never saved.' }),
     h('div.btn-row', {}, h('button.btn.btn-small.btn-danger', {
@@ -135,7 +139,7 @@ export function openSettings(ctl, ui) {
   return dialogShell('Settings', body, unsub);
 }
 
-export function openHelp() {
+export function openHelp(ui) {
   const body = h(
     'div.help',
     {},
@@ -144,14 +148,9 @@ export function openHelp() {
     h('ul.mode-list', {}, MODES.map((m) => h('li', {}, h('strong', { text: `${m.name}: ` }), m.objective))),
     h('h3', { text: 'Keyboard' }),
     h('p', { text: 'Tab moves between controls. Space or Enter presses buttons. Ctrl+Enter (or ⌘+Enter) in the answer box gets feedback. Press S anywhere else to shuffle.' }),
-    h('h3', { text: 'Privacy, precisely' }),
-    h('ul', {},
-      h('li', { text: 'The microphone turns on only when you tap it, and every track is stopped when you stop, discard, change scenario or leave.' }),
-      h('li', { text: 'Raw audio stays in memory on this device. It is turned into text by Whisper running in your browser, then dropped. It is never uploaded, stored or used for anything else.' }),
-      h('li', { text: 'Your answer text is evaluated by an open model running in your browser via WebGPU. It is not sent to any server.' }),
-      h('li', { text: `${BRAND.name} has no accounts, analytics or trackers. Settings, favourites and score totals are saved in this browser only; you can clear them in Settings.` }),
-      h('li', { text: 'The network is used to load the app and, the first time, to download model files from Hugging Face, GitHub and jsDelivr. After that they come from your browser cache.' }),
-    ),
+    h('h3', { text: 'Privacy and safety' }),
+    h('p', { text: 'Your voice and answers never leave this device, and every AI file is checked against a fingerprint before it runs.' }),
+    h('div.btn-row', {}, h('button.btn.btn-small', { type: 'button', onclick: (e) => { e.target.closest('dialog').close(); ui?.openSafety?.(); } }, 'How WingIt keeps you safe')),
     h('h3', { text: 'Models and licences' }),
     h('ul', {},
       h('li', { text: 'Speech: OpenAI Whisper tiny.en / base.en (MIT), ONNX builds by onnx-community, run with Transformers.js (Apache-2.0).' }),
