@@ -46,8 +46,9 @@ export class GameView {
         'div.top-actions',
         {},
         this.coachChip,
-        h('button.icon-btn', { type: 'button', onclick: () => this.ui.openHistory(), 'aria-label': 'Your rounds and favourites' }, icon('heart')),
-        h('button.icon-btn', { type: 'button', onclick: () => this.ui.openSettings(), 'aria-label': 'Settings' }, icon('gear')),
+        h('button.icon-btn', { type: 'button', onclick: () => this.ui.openHistory(), 'aria-label': 'Your rounds and favourites', title: 'Your rounds and favourites' }, icon('heart')),
+        this.ui.themeButton(),
+        h('button.icon-btn', { type: 'button', onclick: () => this.ui.openSettings(), 'aria-label': 'Settings', title: 'Settings' }, icon('gear')),
       ),
     );
 

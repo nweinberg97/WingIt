@@ -22,8 +22,9 @@ export function renderHome(ctl, ui) {
     h(
       'nav.top-actions',
       { 'aria-label': 'App' },
-      h('button.icon-btn', { type: 'button', onclick: () => ui.openHelp(), 'aria-label': 'How it works and privacy' }, icon('help')),
-      h('button.icon-btn', { type: 'button', onclick: () => ui.openSettings(), 'aria-label': 'Settings' }, icon('gear')),
+      h('button.icon-btn', { type: 'button', onclick: () => ui.openHelp(), 'aria-label': 'How it works and privacy', title: 'How it works' }, icon('help')),
+      ui.themeButton(),
+      h('button.icon-btn', { type: 'button', onclick: () => ui.openSettings(), 'aria-label': 'Settings', title: 'Settings' }, icon('gear')),
     ),
   );
 

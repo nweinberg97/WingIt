@@ -11,6 +11,7 @@ import { Store, clearModelCaches, KEYS } from '../src/store.js';
 import { describeError } from '../src/errors.js';
 import { resampleLinear, concatChunks, rms } from '../src/speech/capture.js';
 import { MemoryStorage, goodFeedback } from './helpers.js';
+import { JOKES, shuffledJokes } from '../src/ui/jokes.js';
 
 describe('modes', () => {
   test('every mode is fully specified', () => {
@@ -410,5 +411,24 @@ describe('errors', () => {
       const e = describeError(code);
       assert.ok(e.title && e.body.length > 20, code);
     }
+  });
+});
+
+describe('waiting-room jokes', () => {
+  test('every joke has a setup and a punchline, no duplicates', () => {
+    assert.ok(JOKES.length >= 30);
+    const setups = new Set();
+    for (const j of JOKES) {
+      assert.ok(j.setup.length > 8 && j.setup.length < 90, j.setup);
+      assert.ok(j.punch.length > 3 && j.punch.length < 90, j.punch);
+      assert.ok(!setups.has(j.setup), `duplicate: ${j.setup}`);
+      setups.add(j.setup);
+      assert.equal(isUnsafeText(`${j.setup} ${j.punch}`), false);
+    }
+  });
+  test('shuffle keeps every joke', () => {
+    const s = shuffledJokes(makeRng(5));
+    assert.equal(s.length, JOKES.length);
+    assert.equal(new Set(s.map((j) => j.setup)).size, JOKES.length);
   });
 });

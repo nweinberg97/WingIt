@@ -375,32 +375,103 @@ body.no-scroll { overflow: hidden; }
 .wait-box:focus { outline: none; }
 @keyframes pop-in { from { opacity: 0; transform: translateY(16px) scale(0.92) rotate(-2deg); } }
 .wait-title { font-weight: 900; font-size: var(--step-2); letter-spacing: -0.02em; line-height: 1.15; }
-.wait-line { font-family: var(--font-script); font-style: italic; font-size: var(--step-1); min-height: 2.9em; color: var(--ink-2); }
 .wait-text { color: var(--ink-2); }
 .wait-small { font-size: var(--step--1); color: var(--ink-3); }
 .wait-error { color: var(--coral); font-weight: 700; }
 .wait-actions { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
 .wait-actions .btn-primary { width: 100%; }
 
-.wait-art { width: 220px; height: auto; border-radius: 12px; background: #211547; overflow: hidden; }
-.wa-beam { fill: #ffe98a; opacity: 0.35; transform-origin: 120px 0; animation: sweep 3.2s ease-in-out infinite alternate; }
-.wa-floor { fill: #3a2b74; }
-.wa-curtain { fill: var(--coral); opacity: 0.9; }
-.wa-stand { stroke: #c9c3ec; stroke-width: 4; stroke-linecap: round; }
-.wa-mic { fill: #c9c3ec; }
-.wa-ball.b1 { fill: var(--spot); animation: juggle 1.5s linear infinite; }
-.wa-ball.b2 { fill: var(--mode); animation: juggle 1.5s linear infinite -0.5s; }
-.wa-ball.b3 { fill: #ffffff; animation: juggle 1.5s linear infinite -1s; }
-@keyframes sweep { from { transform: rotate(-16deg); } to { transform: rotate(16deg); } }
-@keyframes juggle {
-  0%   { transform: translate(-30px, 30px); }
-  25%  { transform: translate(-15px, -18px); }
-  50%  { transform: translate(0px, 30px); }
-  62%  { transform: translate(15px, 8px); }
-  75%  { transform: translate(30px, 30px); }
-  88%  { transform: translate(0px, 42px); }
-  100% { transform: translate(-30px, 30px); }
+/* The comedy show: two improvisers loop through bits (yes-and, mime wall, invisible rope);
+   every punchline triggers a rimshot and a laughing crowd via [data-beat="punch"]. */
+.stage-show { width: min(320px, 100%); height: auto; border-radius: 14px; overflow: hidden; border: 3px solid #211547; }
+.st-bg { fill: #211547; }
+.st-floor { fill: #3a2b74; }
+.st-beam { fill: #ffe98a; opacity: 0.28; transform-box: view-box; transform-origin: 150px 0; animation: sweep 3.4s ease-in-out infinite alternate; }
+.st-curtain { fill: var(--coral); }
+.st-valance { fill: #c7353b; }
+.st-rope { stroke: #fffdf5; stroke-width: 3; stroke-dasharray: 5 5; opacity: 0; animation: rope 8s linear infinite; }
+.imp-torso, .imp-head { stroke: #211547; stroke-width: 2.5; }
+.imp-eye { fill: #211547; }
+.imp-mouth { fill: none; stroke: #211547; stroke-width: 2; stroke-linecap: round; }
+.imp-arm { stroke: #fffdf5; stroke-width: 5; stroke-linecap: round; transform-box: fill-box; }
+.imp .arm-l { transform-origin: 100% 0%; }
+.imp .arm-r { transform-origin: 0% 0%; }
+.imp-body { transform-box: view-box; animation-duration: 8s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+.imp-a .imp-body { animation-name: act-a; }
+.imp-b .imp-body { animation-name: act-b; }
+.imp-a .arm-r { animation: arm-a 8s ease-in-out infinite; }
+.imp-a .arm-l { animation: arm-a-l 8s ease-in-out infinite; }
+.imp-b .arm-l { animation: arm-b 8s ease-in-out infinite; }
+.imp-b .arm-r { animation: arm-b-r 8s ease-in-out infinite; }
+.bub { opacity: 0; animation-duration: 8s; animation-iteration-count: infinite; }
+.bub-box { fill: #fffdf5; stroke: #211547; stroke-width: 2; }
+.bub-text { font: 900 12px var(--font-ui); fill: #211547; }
+.bub-a { animation-name: say-a; }
+.bub-b { animation-name: say-b; }
+.bub-c { animation-name: say-c; }
+
+@keyframes sweep { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+/* 0–25% "Yes!"  25–50% "…and!"  50–75% mime wall  75–100% invisible rope */
+@keyframes act-a {
+  0%, 100% { transform: translate(0, 0); }
+  5% { transform: translate(0, -12px); } 10% { transform: translate(0, 0); } 14% { transform: translate(0, -6px); } 18% { transform: translate(0, 0); }
+  50% { transform: translate(0, 0); } 56% { transform: translate(6px, 0); } 70% { transform: translate(6px, 0); }
+  76% { transform: translate(0, 0); } 82% { transform: translate(-6px, 0); } 88% { transform: translate(-2px, 0); } 94% { transform: translate(-7px, 0); }
 }
+@keyframes act-b {
+  0%, 100% { transform: translate(0, 0); }
+  28% { transform: translate(0, 0); } 32% { transform: translate(0, -14px); } 37% { transform: translate(0, 0); } 41% { transform: translate(0, -5px); } 45% { transform: translate(0, 0); }
+  76% { transform: translate(0, 0); } 82% { transform: translate(6px, 0); } 88% { transform: translate(2px, 0); } 94% { transform: translate(7px, 0); }
+}
+@keyframes arm-a {
+  0%, 100% { transform: rotate(0); } 4%, 16% { transform: rotate(-120deg); } 22% { transform: rotate(0); }
+  52% { transform: rotate(0); } 56%, 70% { transform: rotate(-75deg); } 62% { transform: rotate(-90deg); }
+  76% { transform: rotate(-35deg); } 96% { transform: rotate(-35deg); }
+}
+@keyframes arm-a-l {
+  0%, 52%, 100% { transform: rotate(0); } 56%, 70% { transform: rotate(-75deg); } 64% { transform: rotate(-60deg); } 74% { transform: rotate(0); }
+}
+@keyframes arm-b {
+  0%, 26%, 100% { transform: rotate(0); } 30%, 44% { transform: rotate(120deg); } 48% { transform: rotate(0); }
+  76% { transform: rotate(35deg); } 96% { transform: rotate(35deg); }
+}
+@keyframes arm-b-r {
+  0%, 26%, 100% { transform: rotate(0); } 30%, 44% { transform: rotate(-120deg); } 48% { transform: rotate(0); }
+}
+@keyframes say-a { 0%, 1% { opacity: 0; } 3%, 21% { opacity: 1; } 24%, 100% { opacity: 0; } }
+@keyframes say-b { 0%, 26% { opacity: 0; } 28%, 46% { opacity: 1; } 49%, 100% { opacity: 0; } }
+@keyframes say-c { 0%, 53% { opacity: 0; } 56%, 71% { opacity: 1; } 74%, 100% { opacity: 0; } }
+@keyframes rope { 0%, 76% { opacity: 0; } 79%, 96% { opacity: 0.85; } 99%, 100% { opacity: 0; } }
+
+.drum { fill: var(--coral); stroke: #fffdf5; stroke-width: 2; }
+.drum-top { fill: #fffdf5; }
+.cymbal { fill: var(--spot); transform-box: fill-box; transform-origin: 50% 50%; }
+.cym-stand { stroke: #c9c3ec; stroke-width: 2; }
+.stick { stroke: #fffdf5; stroke-width: 3.5; stroke-linecap: round; transform-box: fill-box; transform-origin: 0% 0%; transform: rotate(-22deg); }
+.badum { font: 900 10.5px var(--font-ui); fill: var(--spot); opacity: 0; }
+.fan { fill: #0f0a26; transform-box: fill-box; }
+.ha { font: 900 13px var(--font-ui); fill: #fffdf5; opacity: 0; }
+
+.wait-box[data-beat="punch"] .stick { animation: hit 0.5s ease-out 2; }
+.wait-box[data-beat="punch"] .cymbal { animation: crash 0.9s ease-out 0.45s; }
+.wait-box[data-beat="punch"] .badum { animation: badum 1.6s ease-out 0.2s both; }
+.wait-box[data-beat="punch"] .fan { animation: laugh 0.35s ease-in-out 0.5s 5 alternate; }
+.wait-box[data-beat="punch"] .fan.f1 { animation-delay: 0.6s; }
+.wait-box[data-beat="punch"] .fan.f2 { animation-delay: 0.7s; }
+.wait-box[data-beat="punch"] .ha { animation: ha 1.6s ease-out 0.55s both; }
+.wait-box[data-beat="punch"] .ha.h2 { animation-delay: 0.75s; }
+.wait-box[data-beat="punch"] .ha.h3 { animation-delay: 0.9s; }
+@keyframes hit { 0% { transform: rotate(-22deg); } 40% { transform: rotate(8deg); } 100% { transform: rotate(-22deg); } }
+@keyframes crash { 0% { transform: rotate(0); } 20% { transform: rotate(14deg); } 45% { transform: rotate(-10deg); } 70% { transform: rotate(5deg); } 100% { transform: rotate(0); } }
+@keyframes badum { 0% { opacity: 0; transform: translateY(6px) scale(0.6); } 20% { opacity: 1; transform: translateY(0) scale(1.15); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes laugh { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+@keyframes ha { 0% { opacity: 0; transform: translateY(0); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(-34px); } }
+
+.joke { min-height: 5.2em; display: flex; flex-direction: column; gap: 6px; max-width: 34ch; }
+.joke-setup { font-weight: 800; font-size: var(--step-1); line-height: 1.3; }
+.joke-punch { font-family: var(--font-script); font-style: italic; font-size: var(--step-1); color: var(--ink); background: color-mix(in srgb, var(--spot) 40%, transparent); padding: 2px 10px; border-radius: 8px; align-self: center; animation: punch-in 420ms var(--ease-pop) both; }
+@keyframes punch-in { from { opacity: 0; transform: scale(0.7) rotate(-3deg); } }
+.joke-btn { background: var(--spot); color: #211547; border-color: #211547; }
 
 /* ---------- feedback ---------- */
 .feedback-slot { margin-top: clamp(24px, 4vw, 36px); outline: none; scroll-margin-top: 16px; }
@@ -500,7 +571,8 @@ dialog.sheet::backdrop { background: rgba(20, 12, 50, 0.55); }
 :root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after {
   animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
 }
-:root[data-motion="reduce"] .wa-ball { animation: none !important; }
+:root[data-motion="reduce"] .st-rope, :root[data-motion="reduce"] .bub { animation: none !important; }
+:root[data-motion="reduce"] .bub-a { opacity: 1; }
 
 @media (forced-colors: active) {
   .cue-card, .wait-box, .feedback, .ticket, .mic-btn { border-color: CanvasText; }

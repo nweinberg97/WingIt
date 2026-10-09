@@ -110,7 +110,10 @@ def primary_flow_voice(browser, base):
     page.screenshot(path=str(SHOTS / "gate-desktop.png"))
     page.locator("#wake-btn").click()
     wait_kind(page, "thinking")
-    expect(page.locator(".wait-line")).not_to_be_empty()
+    # The comedy show: a dad joke setup, then the punchline lands with a rimshot.
+    expect(page.locator(".joke-setup")).not_to_be_empty()
+    expect(page.locator(".joke-punch")).to_be_hidden()
+    expect(page.locator(".stage-show")).to_be_visible()
     expect(page.locator(".you-said")).to_contain_text("The pigeons have formed a union")
     page.wait_for_timeout(500)
     page.screenshot(path=str(SHOTS / "waiting-desktop.png"))
@@ -134,6 +137,62 @@ def primary_flow_voice(browser, base):
     assert got and got[0]["samples"] > 16000, got
     assert not page.external, f"audio flow touched the network: {page.external}"
     assert not page.errors, page.errors
+
+
+@case
+def comedy_show_jokes(browser, base):
+    page = new_page(browser, base, "?slow=12000")
+    page.get_by_role("button", name="Start playing").click()
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
+    page.locator("#wake-btn").click()
+    wait_kind(page, "thinking")
+    setup1 = page.locator(".joke-setup").inner_text()
+    assert setup1.strip()
+    # Tap for the punchline early.
+    page.get_by_role("button", name="Tell me!").click()
+    expect(page.locator(".joke-punch")).to_be_visible()
+    expect(page.locator(".wait-box")).to_have_attribute("data-beat", "punch")
+    page.wait_for_timeout(600)
+    page.screenshot(path=str(SHOTS / "comedy-show.png"))
+    # Ask for another one.
+    page.get_by_role("button", name="Another one").click()
+    expect(page.locator(".joke-punch")).to_be_hidden()
+    expect(page.locator(".joke-setup")).not_to_have_text(setup1)
+    # Punchlines also land on their own.
+    expect(page.locator(".joke-punch")).to_be_visible(timeout=5000)
+
+
+@case
+def feedback_never_cuts_off_a_joke(browser, base):
+    page = new_page(browser, base, "?slow=300")
+    page.get_by_role("button", name="Start playing").click()
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
+    page.locator("#wake-btn").click()
+    wait_kind(page, "thinking")
+    # Feedback arrives before the punchline would; the punchline still lands, then the pop-up closes.
+    expect(page.locator(".joke-punch")).to_be_visible(timeout=3000)
+    expect(page.locator(".wait-overlay")).to_have_count(0, timeout=4000)
+    expect(page.locator(".feedback")).to_be_visible()
+
+
+@case
+def theme_toggle_is_its_own_button(browser, base):
+    page = new_page(browser, base, color_scheme="light")
+    toggle = page.get_by_role("button", name="Switch to dark mode")
+    expect(toggle).to_be_visible()
+    expect(page.get_by_role("button", name="Settings", exact=True)).to_be_visible()
+    toggle.click()
+    assert page.evaluate("document.documentElement.dataset.theme") == "dark"
+    expect(page.get_by_role("button", name="Switch to light mode")).to_be_visible()
+    page.get_by_role("button", name="Start playing").click()
+    expect(page.get_by_role("button", name="Switch to light mode")).to_be_visible()
+    page.get_by_role("button", name="Switch to light mode").click()
+    assert page.evaluate("document.documentElement.dataset.theme") == "light"
+    # Settings still opens settings, not the theme.
+    page.get_by_role("button", name="Settings", exact=True).click()
+    expect(page.get_by_role("dialog")).to_contain_text("Look and feel")
 
 
 @case
@@ -175,7 +234,7 @@ def typing_instead(browser, base):
 def check_transcript_setting(browser, base):
     page = new_page(browser, base)
     page.get_by_role("button", name="Start playing").click()
-    page.get_by_role("button", name="Settings").click()
+    page.get_by_role("button", name="Settings", exact=True).click()
     page.get_by_role("switch", name="Check my transcript before sending").check()
     page.keyboard.press("Escape")
     page.get_by_role("button", name="Start talking").click()
@@ -309,7 +368,7 @@ def keyboard_only_round(browser, base):
 def settings_theme_motion_and_clear(browser, base):
     page = new_page(browser, base)
     page.get_by_role("button", name="Start playing").click()
-    page.get_by_role("button", name="Settings").click()
+    page.get_by_role("button", name="Settings", exact=True).click()
     dlg = page.get_by_role("dialog")
     expect(dlg).to_be_visible()
     dlg.get_by_role("radio", name="Dark").check()
@@ -329,7 +388,7 @@ def settings_theme_motion_and_clear(browser, base):
     expect(page.locator(".fav-list li")).to_have_count(1)
     page.keyboard.press("Escape")
     page.on("dialog", lambda d: d.accept())
-    page.get_by_role("button", name="Settings").click()
+    page.get_by_role("button", name="Settings", exact=True).click()
     page.get_by_role("button", name="Clear history and favourites").click()
     page.keyboard.press("Escape")
     page.get_by_role("button", name="Your rounds and favourites").click()

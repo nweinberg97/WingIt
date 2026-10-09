@@ -4,6 +4,7 @@ import { Coach } from './ai/coach.js';
 import { renderHome } from './ui/home.js';
 import { GameView } from './ui/game.js';
 import { openSettings, openHelp, openHistory } from './ui/dialogs.js';
+import { h, icon } from './ui/dom.js';
 
 // Automated browser tests can inject fake hardware/model runtimes before the app boots.
 // In normal use this is undefined and the real WebLLM / Whisper / microphone are used.
@@ -29,11 +30,36 @@ const ui = {
     if (m === 'full') return false;
     return matchMedia('(prefers-reduced-motion: reduce)').matches;
   },
+  isDark() {
+    const { theme } = ctl.settings;
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
+    return matchMedia('(prefers-color-scheme: dark)').matches;
+  },
+  /** Light/dark switch, separate from Settings. Shows what you'll switch to. */
+  themeButton() {
+    const btn = h('button.icon-btn.theme-btn', { type: 'button' });
+    const paint = () => {
+      const dark = ui.isDark();
+      btn.replaceChildren(icon(dark ? 'sun' : 'moon'));
+      btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+      btn.title = dark ? 'Light mode' : 'Dark mode';
+    };
+    btn.addEventListener('click', () => {
+      ctl.updateSettings({ theme: ui.isDark() ? 'light' : 'dark' });
+      ui.applyPrefs();
+    });
+    ui.themeButtons.add(paint);
+    paint();
+    return btn;
+  },
+  themeButtons: new Set(),
   applyPrefs() {
     const { theme } = ctl.settings;
     if (theme === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.motion = ui.reducedMotion() ? 'reduce' : 'full';
+    for (const paint of ui.themeButtons) paint();
   },
 };
 
@@ -43,6 +69,7 @@ let currentView = null;
 function render(change) {
   if (ctl.view !== currentView) {
     currentView = ctl.view;
+    ui.themeButtons.clear();
     if (ctl.view === 'home') {
       game?.destroy();
       game = null;
@@ -62,6 +89,7 @@ function render(change) {
 ctl.subscribe(render);
 ui.applyPrefs();
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', ui.applyPrefs);
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', ui.applyPrefs);
 render('init');
 
 // Never leave the microphone running when the page is hidden or closed.

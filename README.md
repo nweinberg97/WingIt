@@ -31,7 +31,7 @@ Each dimension has written 1–5 criteria, and the evaluator receives them.
 1. **Prompt (top).** An improv card from the *deck* (a procedural generator that combines setting, role, object, complication, twist and bonus ingredients, so it's instant and works offline), or *written by your coach* (the local model, seeded with deck ingredients and prefetched in the background so a new prompt appears instantly). The card always says which.
 2. **Mic (underneath).** Tap the big mic and talk. A ring of bars around it moves with your voice, and the headline counts the time (or counts down, if the challenge timer is on). Tap **Finish** when you're done, or **Start over**. Prefer typing? "Rather type?" swaps the mic for a text box.
 3. **Transcript, sent.** Whisper writes down what you said on your device. The text appears as a "You said" bubble and goes straight to the coach. Turn on *Check my transcript before sending* in Settings if you'd rather fix it first.
-4. **Waiting pop-up.** A tiny stage with a sweeping spotlight and a juggler, plus a rotating joke ("Yes-and-ing your answer…"). The first time, the same pop-up asks before downloading the coach and shows the download's progress. "Stop and edit my answer" cancels.
+4. **The waiting show.** A tiny stage where two improvisers loop through bits (a "Yes!" / "…and!" exchange, a mime wall, an invisible rope tug) under a sweeping spotlight, while a dad joke plays out in two beats: setup, then punchline. Every punchline gets a *ba-dum-tss* rimshot and a laughing crowd. "Tell me!" reveals it early and "Another one" skips ahead; if feedback arrives mid-joke, the punchline still lands before the show closes. The first time, the same pop-up asks before downloading the coach and runs the show during the download.
 5. **Feedback.** Your strongest move (quoted from your own words and checked against the transcript), what worked, one thing to try next, a different direction (hidden until you ask), a 3-dimension scorecard, and a sign-off. Then **Next scenario**, **Try again**, **Harder version** or **Copy notes**.
 
 ---
@@ -92,6 +92,8 @@ Browser mic ─► AudioWorklet (PCM in memory) ─► resample to 16 kHz ─►
 - The Web Speech API is deliberately **not** used, because some browsers send that audio to a cloud service.
 
 ## Security
+- **Downloaded models are data, not programs.** They are weight files run by the browser's own WebGPU / WebAssembly engines inside the normal web sandbox. They cannot install software, read files, or reach other tabs or apps. They come from the official `mlc-ai` and `onnx-community` repos on Hugging Face.
+- **One remaining trust dependency: the inference libraries load from jsDelivr.** WebLLM and Transformers.js are pinned to exact versions, but if the CDN were ever compromised, that code would run inside WingIt. The meta-tag CSP limits where the page can load from and connect to, but it does not cover the libraries' web workers. Recommended before a wide launch: host those two libraries in this repo (fetched at the pinned versions and checked against hashes) so all code is served from your own origin.
 - A strict CSP is set via a meta tag: `default-src 'self'`; scripts only from self and jsDelivr; `connect-src` limited to the model hosts; no inline scripts or styles; `object-src 'none'`.
 - All model output is validated, length-capped and rendered with `textContent`. No `innerHTML` exists anywhere (`scripts/check.mjs` enforces this).
 - Transcripts are capped at 2,000 characters, stripped of tag-like syntax, and wrapped as data; the system prompt tells the model to ignore instructions inside them. Fabricated quotes are dropped.
@@ -133,8 +135,8 @@ CI runs all three (`.github/workflows/test.yml`).
 | --- | --- | --- |
 | Static checks (`scripts/check.mjs`) | ✅ 29 files | Real |
 | Unit (`tests/unit.test.js`) | ✅ | Real code: modes and rubrics, deck generation and repetition avoidance, scenario validation and safety, feedback validation (incl. fabricated-quote removal and malformed JSON), answer validation, prompt-injection wrapping, state machine and stale tokens, persistence and corruption handling, cache clearing, resampling |
-| Integration (`tests/integration.test.js`) | ✅ (85 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
-| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 16/16 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
+| Integration (`tests/integration.test.js`) | ✅ (87 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
+| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 19/19 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
 
 **Not verified in this build environment.** Its network blocks jsDelivr and Hugging Face, so these need a manual check on a real device:
 - [ ] Real Whisper download and transcription quality (`base.en` and `tiny.en`).
@@ -155,10 +157,11 @@ Everything around those calls (prompts, schemas, retries, validation, errors) is
 - The CSP is delivered via a `<meta>` tag because GitHub Pages can't set headers. Hosts that support headers should send the same policy as a header, plus `Permissions-Policy: microphone=(self)`.
 
 ## 7. Next steps
-1. A manual real-device pass across Chrome / Edge / Safari 26 / Android Chrome, then tune prompts on real transcripts.
-2. Self-host a distinctive open-licence display font (OFL) to sharpen the brand without third-party requests.
-3. Add a service worker so the app shell also works fully offline after the first visit.
-4. Add multilingual Whisper (`base`) plus a matching language setting.
+1. Host WebLLM and Transformers.js in the repo instead of loading them from jsDelivr (removes the last third-party code dependency).
+2. A manual real-device pass across Chrome / Edge / Safari 26 / Android Chrome, then tune prompts on real transcripts.
+3. Self-host a distinctive open-licence display font (OFL) to sharpen the brand without third-party requests.
+4. Add a service worker so the app shell also works fully offline after the first visit.
+5. Add multilingual Whisper (`base`) plus a matching language setting.
 
 ## Licences
 App code: MIT. Whisper: MIT. Qwen2.5 0.5B/1.5B: Apache-2.0. Phi-3.5 mini: MIT. WebLLM: Apache-2.0. Transformers.js: Apache-2.0. ONNX Runtime Web: MIT.

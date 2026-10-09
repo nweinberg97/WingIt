@@ -60,7 +60,9 @@ const GLYPHS = {
   stop: 'M7 7h10v10H7z',
   shuffle: 'M3 7h4c4 0 6 10 10 10h4M3 17h4c1.6 0 2.8-1.6 3.8-3.4M14 9.2C15 7.9 15.9 7 17 7h4M18 4l3 3-3 3M18 14l3 3-3 3',
   retry: 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4',
-  gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1',
+  gear: 'M19.45 10.49 L22.40 10.53 L22.40 13.47 L19.45 13.51 L18.33 16.20 L20.39 18.32 L18.32 20.39 L16.20 18.33 L13.51 19.45 L13.47 22.40 L10.53 22.40 L10.49 19.45 L7.80 18.33 L5.68 20.39 L3.61 18.32 L5.67 16.20 L4.55 13.51 L1.60 13.47 L1.60 10.53 L4.55 10.49 L5.67 7.80 L3.61 5.68 L5.68 3.61 L7.80 5.67 L10.49 4.55 L10.53 1.60 L13.47 1.60 L13.51 4.55 L16.20 5.67 L18.32 3.61 L20.39 5.68 L18.33 7.80Z M15 12a3 3 0 1 0 -6 0a3 3 0 1 0 6 0Z',
+  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  moon: 'M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a7 7 0 0 0 10.7 10.7z',
   heart: 'M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z',
   copy: 'M8 8h11v12H8zM5 16V4h11',
   lock: 'M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3',
@@ -72,7 +74,7 @@ const GLYPHS = {
 };
 
 export function icon(name, { size = 20, label } = {}) {
-  const filled = ['bolt', 'plus', 'star', 'stop'].includes(name);
+  const filled = ['bolt', 'plus', 'star', 'stop', 'gear'].includes(name);
   const el = svg(
     'svg',
     {
@@ -89,7 +91,7 @@ export function icon(name, { size = 20, label } = {}) {
       role: label ? 'img' : undefined,
       'aria-label': label,
     },
-    svg('path', { d: GLYPHS[name] ?? GLYPHS.star }),
+    svg('path', { d: GLYPHS[name] ?? GLYPHS.star, 'fill-rule': name === 'gear' ? 'evenodd' : undefined }),
   );
   return el;
 }
