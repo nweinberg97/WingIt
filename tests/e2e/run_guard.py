@@ -10,6 +10,7 @@ import functools
 import hashlib
 import http.server
 import json
+import os
 import pathlib
 import shutil
 import socketserver
@@ -113,6 +114,8 @@ def main():
     def check(name, cond, detail=""):
         results.append((name, bool(cond), detail))
         print(("PASS  " if cond else "FAIL  ") + name + (f"  ({detail})" if detail and not cond else ""))
+        if not cond and os.environ.get("GITHUB_ACTIONS"):
+            print(f"::error title=guard check failed::{name}: {str(detail)[:600]}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -172,6 +175,7 @@ def main():
         status = page.locator(".safety-status").inner_text()
         check("explainer shows the live safety status", "Safety check is on" in status, status)
         page.wait_for_timeout(300)
+        (ROOT / "tests/e2e/screenshots").mkdir(parents=True, exist_ok=True)
         page.locator("dialog").screenshot(path=str(ROOT / "tests/e2e/screenshots/safety-explainer-live.png"))
         browser.close()
 
@@ -186,6 +190,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
+    except Exception as e:
         traceback.print_exc()
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::error title=guard test crashed::{repr(e)[:800]}")
         sys.exit(1)
