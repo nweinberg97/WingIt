@@ -1,0 +1,20 @@
+{
+  "_comment": "Pinned versions for everything WingIt loads besides its own code. scripts/vendor.mjs (run by .github/workflows/vendor.yml) copies the libraries into vendor/, pins every model to an exact Hugging Face commit, and writes vendor/integrity.json with the SHA-256 of every file. The service worker (sw.js) refuses any file that is not listed there with a matching hash.",
+  "packages": {
+    "@mlc-ai/web-llm": "0.2.85",
+    "@huggingface/transformers": "4.3.1",
+    "esbuild": "0.25.10"
+  },
+  "webllmModels": [
+    "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+    "Qwen2.5-1.5B-Instruct-q4f32_1-MLC",
+    "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+    "Qwen2.5-0.5B-Instruct-q4f32_1-MLC",
+    "Phi-3.5-mini-instruct-q4f16_1-MLC",
+    "Phi-3.5-mini-instruct-q4f32_1-MLC"
+  ],
+  "speechModels": {
+    "whisper-tiny.en": "onnx-community/whisper-tiny.en",
+    "whisper-base.en": "onnx-community/whisper-base.en"
+  }
+}

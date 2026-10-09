@@ -1,0 +1,38 @@
+name: vendor
+# Copies WingIt's libraries into vendor/, pins every model to an exact commit, and records the
+# SHA-256 of every file in vendor/integrity.json. Runs when the pinned versions change, or by hand.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - vendor.config.json
+      - scripts/vendor.mjs
+      - .github/workflows/vendor.yml
+permissions:
+  contents: write
+concurrency:
+  group: vendor
+  cancel-in-progress: false
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build vendor/ and integrity manifest
+        run: node scripts/vendor.mjs
+      - name: Show what changed
+        run: |
+          du -sh vendor vendor/* || true
+          git status --short | head -50
+      - name: Commit
+        run: |
+          git config user.name "wingit-vendor-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vendor
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Vendor pinned libraries and integrity manifest"
+          git push
