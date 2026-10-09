@@ -82,7 +82,7 @@ def wait_kind(page, kind, timeout=10000):
 @case
 def primary_flow_voice(browser, base):
     """Prompt on top → reactive mic → Finish → transcript sent → fun pop-up → feedback → next."""
-    page = new_page(browser, base, "?realmic=1&slow=900", permissions=["microphone"])
+    page = new_page(browser, base, "?realmic=1&slow=900&loadms=6000", permissions=["microphone"])
     page.get_by_role("button", name="Start playing").click()
     setup1 = page.locator(".card-setup").inner_text()
     # Prompt sits above the mic.
@@ -102,13 +102,13 @@ def primary_flow_voice(browser, base):
     page.wait_for_timeout(1400)
     page.screenshot(path=str(SHOTS / "recording-desktop.png"))
     page.locator("#finish-btn").click()
-    # First time: the pop-up asks to set up the coach, then goes straight on.
-    wait_kind(page, "gate")
-    expect(page.get_by_role("dialog")).to_contain_text("meet your coach")
-    assert "null" not in page.locator(".wait-box").inner_text()
+    # First visit: no download prompt. The coach is still loading in the background, so the
+    # show starts with a progress bar, then moves straight on to the coach reading the answer.
+    wait_kind(page, "loading")
+    expect(page.locator(".progress")).to_be_visible()
+    expect(page.locator(".joke-setup")).to_be_visible()
     page.wait_for_timeout(500)
-    page.screenshot(path=str(SHOTS / "gate-desktop.png"))
-    page.locator("#wake-btn").click()
+    page.screenshot(path=str(SHOTS / "warming-up-desktop.png"))
     wait_kind(page, "thinking")
     # The comedy show: a dad joke setup, then the punchline lands with a rimshot.
     expect(page.locator(".joke-setup")).not_to_be_empty()
@@ -145,10 +145,11 @@ def comedy_show_jokes(browser, base):
     page.get_by_role("button", name="Start playing").click()
     page.get_by_role("button", name="Start talking").click()
     page.locator("#finish-btn").click()
-    page.locator("#wake-btn").click()
     wait_kind(page, "thinking")
-    setup1 = page.locator(".joke-setup").inner_text()
+    # The setup types out on screen; the full line is available to screen readers right away.
+    setup1 = page.locator(".joke .sr-only").inner_text()
     assert setup1.strip()
+    expect(page.locator(".joke-setup")).to_have_text(setup1, timeout=4000)
     # Tap for the punchline early.
     page.get_by_role("button", name="Tell me!").click()
     expect(page.locator(".joke-punch")).to_be_visible()
@@ -158,7 +159,7 @@ def comedy_show_jokes(browser, base):
     # Ask for another one.
     page.get_by_role("button", name="Another one").click()
     expect(page.locator(".joke-punch")).to_be_hidden()
-    expect(page.locator(".joke-setup")).not_to_have_text(setup1)
+    expect(page.locator(".joke .sr-only")).not_to_have_text(setup1)
     # Punchlines also land on their own.
     expect(page.locator(".joke-punch")).to_be_visible(timeout=5000)
 
@@ -169,7 +170,6 @@ def feedback_never_cuts_off_a_joke(browser, base):
     page.get_by_role("button", name="Start playing").click()
     page.get_by_role("button", name="Start talking").click()
     page.locator("#finish-btn").click()
-    page.locator("#wake-btn").click()
     wait_kind(page, "thinking")
     # Feedback arrives before the punchline would; the punchline still lands, then the pop-up closes.
     expect(page.locator(".joke-punch")).to_be_visible(timeout=3000)
@@ -202,7 +202,6 @@ def next_scenario_after_feedback(browser, base):
     setup1 = page.locator(".card-setup").inner_text()
     page.get_by_role("button", name="Start talking").click()
     page.locator("#finish-btn").click()
-    page.locator("#wake-btn").click()
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     page.get_by_role("button", name="Next scenario").click()
     expect(page.locator(".feedback")).to_have_count(0)
@@ -224,8 +223,6 @@ def typing_instead(browser, base):
     expect(page.locator("#submit-btn")).to_be_disabled()
     page.locator("#answer").fill("Ladies and gentlemen, the toaster has filed for divorce.")
     page.locator("#submit-btn").click()
-    wait_kind(page, "gate")
-    page.locator("#wake-btn").click()
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     expect(page.locator(".you-said")).to_contain_text("toaster has filed for divorce")
 
@@ -243,17 +240,20 @@ def check_transcript_setting(browser, base):
     expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.")
     page.locator("#answer").fill("The pigeons have formed a union and they want rye bread.")
     page.locator("#submit-btn").click()
-    page.locator("#wake-btn").click()
     expect(page.locator(".you-said")).to_contain_text("rye bread", timeout=10000)
 
 
 @case
 def gate_not_now_keeps_transcript(browser, base):
-    page = new_page(browser, base)
+    page = new_page(browser, base, "?metered=1")
     page.get_by_role("button", name="Start playing").click()
     page.get_by_role("button", name="Start talking").click()
     page.locator("#finish-btn").click()
     wait_kind(page, "gate")
+    expect(page.get_by_role("dialog")).to_contain_text("mobile data or Data Saver")
+    assert "null" not in page.locator(".wait-box").inner_text()
+    page.wait_for_timeout(500)
+    page.screenshot(path=str(SHOTS / "gate-desktop.png"))
     page.keyboard.press("Escape")
     expect(page.locator(".wait-overlay")).to_have_count(0)
     expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.")
@@ -265,7 +265,6 @@ def coach_written_scenarios_are_labelled(browser, base):
     page.get_by_role("button", name="Start playing").click()
     page.get_by_role("button", name="Start talking").click()
     page.locator("#finish-btn").click()
-    page.locator("#wake-btn").click()
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     page.wait_for_function("window.__e2e.chatCalls >= 2")
     page.wait_for_timeout(200)
@@ -326,7 +325,6 @@ def stop_waiting_and_edit(browser, base):
     page.evaluate("window.__WINGIT__.updateSettings({ scenarioSource: 'deck' })")
     page.get_by_role("button", name="Start talking").click()
     page.locator("#finish-btn").click()
-    page.locator("#wake-btn").click()
     wait_kind(page, "thinking")
     page.get_by_role("button", name="Stop and edit my answer").click()
     expect(page.locator(".wait-overlay")).to_have_count(0)
@@ -337,7 +335,7 @@ def stop_waiting_and_edit(browser, base):
 
 @case
 def keyboard_only_round(browser, base):
-    page = new_page(browser, base)
+    page = new_page(browser, base, "?metered=1")
     page.keyboard.press("Tab")
     for _ in range(5):
         if page.evaluate("document.activeElement.id") == "start-playing":
@@ -424,7 +422,6 @@ def mobile_layout(browser, base):
     assert box["width"] >= 100 and abs(box["width"] - box["height"]) < 1
     page.locator("#mic-btn").tap()
     page.locator("#finish-btn").tap()
-    page.locator("#wake-btn").tap()
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     no_overflow(page)
     page.screenshot(path=str(SHOTS / "feedback-mobile.png"), full_page=True)
@@ -437,7 +434,6 @@ def model_output_rendered_as_text(browser, base):
     page.get_by_role("button", name="Rather type?").click()
     page.locator("#answer").fill('<img src=x onerror="window.__pwned=1"> hello')
     page.locator("#submit-btn").click()
-    page.locator("#wake-btn").click()
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     assert page.evaluate("window.__pwned") is None
     assert page.locator(".feedback img, .you-said img").count() == 0

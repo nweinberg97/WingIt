@@ -7,6 +7,8 @@
   const noGpu = params.get('nogpu') === '1';
   const realMic = params.get('realmic') === '1';
   const denyMic = params.get('denymic') === '1';
+  const metered = params.get('metered') === '1';
+  const loadMs = Number(params.get('loadms') || 50);
 
   window.__e2e = { chatCalls: 0, transcribed: [], tracks: [] };
 
@@ -29,8 +31,12 @@
 
   const coachRuntime = {
     name: 'E2EFakeRuntime',
-    async load() {
-      await new Promise((r) => setTimeout(r, 50));
+    async load(id, onProgress) {
+      const steps = 5;
+      for (let i = 1; i <= steps; i++) {
+        await new Promise((r) => setTimeout(r, loadMs / steps));
+        onProgress?.({ fraction: i / steps });
+      }
     },
     async isCached() {
       return false;
@@ -92,6 +98,7 @@
   }
 
   window.__WINGIT_TEST__ = {
+    connection: metered ? { saveData: true, type: 'cellular', effectiveType: '4g' } : null,
     coachRuntime,
     gpuDetector: async () => (noGpu ? { ok: false, f16: false } : { ok: true, f16: true }),
     transcriber,

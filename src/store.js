@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   timer: false,
   livePreview: true,
   reviewBeforeSend: false, // false = Finish sends the transcript straight to the coach
+  autoDownload: true, // fetch the models in the background when play starts (skipped on metered connections)
   scenarioSource: 'auto', // auto (AI when the coach is awake) | deck
   coachModel: 'qwen2.5-1.5b',
   transcribeModel: 'whisper-base.en',

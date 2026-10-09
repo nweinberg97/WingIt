@@ -17,13 +17,14 @@ const SILENCE_PEAK = 0.015;
 const PREVIEW_EVERY_MS = 3000;
 
 export class Controller {
-  constructor({ store, coach, transcriber, micFactory, rng } = {}) {
+  constructor({ store, coach, transcriber, micFactory, rng, connection } = {}) {
     this.store = store ?? new Store();
     this.settings = this.store.getSettings();
     this.coach = coach ?? new Coach();
     this.transcriber = transcriber ?? new LocalTranscriber();
     this.micFactory = micFactory ?? (() => new MicCapture());
     this.rng = rng ?? Math.random;
+    this.connection = connection === undefined ? globalThis.navigator?.connection ?? null : connection;
     this.coach.setModel(this.settings.coachModel);
     this.transcriber.setModel(this.settings.transcribeModel);
 
@@ -38,6 +39,7 @@ export class Controller {
     this.prefetching = false;
     this.gate = false; // show the "wake the coach" prompt
     this.inputMode = 'voice'; // voice | type
+    this.warming = false; // background download about to start
     this.pendingSubmitAfterWake = false;
     this.listeners = new Set();
     this.ticker = null;
@@ -74,13 +76,42 @@ export class Controller {
     this.view = 'game';
     if (!this.state.scenario || this.state.scenario.modeId !== this.modeId) this.nextScenario();
     this.emit('view');
-    if (this.coach.status === 'idle') {
-      this.coach
-        .checkCached()
-        .then((cached) => {
-          if (cached && this.coach.status === 'idle') this.wakeCoach({ silent: true });
-        })
-        .catch(() => {});
+    this.warmUp();
+  }
+
+  /** True on mobile data or Data Saver, where a surprise 1 GB download isn't OK. */
+  isMetered() {
+    const c = this.connection;
+    if (!c) return false;
+    return !!c.saveData || c.type === 'cellular' || ['slow-2g', '2g', '3g'].includes(c.effectiveType);
+  }
+
+  /**
+   * Get the models ready in the background as soon as play starts, so nobody has to press
+   * "download". Cached models just wake up. On metered connections we only wake cached ones
+   * and ask before downloading anything new.
+   */
+  async warmUp() {
+    if (this.coach.status !== 'idle' || this.warming) return;
+    const auto = this.settings.autoDownload && !this.isMetered();
+    this.warming = auto; // an answer submitted now should wait for this download, not prompt
+    let cached = false;
+    try {
+      cached = await this.coach.checkCached();
+    } catch {
+      /* treat as not cached */
+    }
+    try {
+      if (this.coach.status !== 'idle' || this.coach.gpuOk === false) return;
+      if (auto || cached) {
+        if (auto) this.transcriber.load().catch(() => {});
+        const p = this.wakeCoach({ silent: true });
+        this.warming = false;
+        await p;
+      }
+    } finally {
+      this.warming = false;
+      this.emit('coach');
     }
   }
   async goHome() {
@@ -306,7 +337,7 @@ export class Controller {
       return;
     }
     if (this.coach.status !== 'ready') {
-      if (this.coach.status === 'loading') {
+      if (this.coach.status === 'loading' || this.warming) {
         this.pendingSubmitAfterWake = true;
       }
       this.gate = true;

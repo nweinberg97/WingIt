@@ -15,6 +15,7 @@ const ctl = new Controller({
   coach,
   transcriber: testHooks?.transcriber,
   micFactory: testHooks?.micFactory,
+  connection: testHooks?.connection,
 });
 
 const root = document.getElementById('app');

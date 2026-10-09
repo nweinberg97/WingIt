@@ -31,7 +31,7 @@ Each dimension has written 1–5 criteria, and the evaluator receives them.
 1. **Prompt (top).** An improv card from the *deck* (a procedural generator that combines setting, role, object, complication, twist and bonus ingredients, so it's instant and works offline), or *written by your coach* (the local model, seeded with deck ingredients and prefetched in the background so a new prompt appears instantly). The card always says which.
 2. **Mic (underneath).** Tap the big mic and talk. A ring of bars around it moves with your voice, and the headline counts the time (or counts down, if the challenge timer is on). Tap **Finish** when you're done, or **Start over**. Prefer typing? "Rather type?" swaps the mic for a text box.
 3. **Transcript, sent.** Whisper writes down what you said on your device. The text appears as a "You said" bubble and goes straight to the coach. Turn on *Check my transcript before sending* in Settings if you'd rather fix it first.
-4. **The waiting show.** A tiny stage where two improvisers loop through bits (a "Yes!" / "…and!" exchange, a mime wall, an invisible rope tug) under a sweeping spotlight, while a dad joke plays out in two beats: setup, then punchline. Every punchline gets a *ba-dum-tss* rimshot and a laughing crowd. "Tell me!" reveals it early and "Another one" skips ahead; if feedback arrives mid-joke, the punchline still lands before the show closes. The first time, the same pop-up asks before downloading the coach and runs the show during the download.
+4. **The waiting show.** Mic, WingIt's microphone comedian, stands in a spotlight between velvet curtains and tells dad jokes (mostly improv puns) while the coach reads your answer. The setup types out as Mic talks, with mouth flaps, gestures and raised eyebrows. On the punchline Mic does a squash-and-stretch jump with happy eyes and arms up, the drummer hits a *ba-dum-tss*, and confetti and "HA!"s fly. "Tell me!" reveals early and "Another one" skips ahead. If feedback arrives mid-joke, the punchline still lands before the show closes.
 5. **Feedback.** Your strongest move (quoted from your own words and checked against the transcript), what worked, one thing to try next, a different direction (hidden until you ask), a 3-dimension scorecard, and a sign-off. Then **Next scenario**, **Try again**, **Harder version** or **Copy notes**.
 
 ---
@@ -104,9 +104,10 @@ Browser mic ─► AudioWorklet (PCM in memory) ─► resample to 16 kHz ─►
 ## 4. Setup
 
 ### For players
-Open the hosted page in a recent desktop Chrome or Edge, Chrome on Android, or Safari 26+. Tap **Start playing**.
-- Speech: on the first tap of the mic, about 41–77 MB downloads, then it's cached.
-- Coach: on your first **Get feedback**, WingIt explains the one-time download (~1 GB by default) and asks before starting it.
+Open the hosted page in a recent desktop Chrome or Edge, Chrome on Android, or Safari 26+, and tap **Start playing**. There is nothing to install and no download button.
+- When play starts, the speech model (~77 MB) and the coach (~1 GB for the default) download **in the background** while you read the prompt and talk. If you finish before the coach is ready, the waiting show runs with a progress bar and your answer is sent the moment it's ready.
+- Later visits load from the browser cache in seconds, even offline.
+- **On mobile data or Data Saver** nothing new downloads automatically; the app asks first. Models that are already downloaded still wake up. The automatic download can be switched off in Settings.
 
 ### Host it (GitHub Pages, free)
 Repository **Settings → Pages → Deploy from a branch → `main` / root**. That's it: no build. The `.nojekyll` file is included.
@@ -135,7 +136,7 @@ CI runs all three (`.github/workflows/test.yml`).
 | --- | --- | --- |
 | Static checks (`scripts/check.mjs`) | ✅ 29 files | Real |
 | Unit (`tests/unit.test.js`) | ✅ | Real code: modes and rubrics, deck generation and repetition avoidance, scenario validation and safety, feedback validation (incl. fabricated-quote removal and malformed JSON), answer validation, prompt-injection wrapping, state machine and stale tokens, persistence and corruption handling, cache clearing, resampling |
-| Integration (`tests/integration.test.js`) | ✅ (87 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
+| Integration (`tests/integration.test.js`) | ✅ (92 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
 | Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 19/19 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
 
 **Not verified in this build environment.** Its network blocks jsDelivr and Hugging Face, so these need a manual check on a real device:

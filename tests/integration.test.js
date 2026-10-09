@@ -9,11 +9,11 @@ import { deckScenario, makeRng, pickIngredients } from '../src/deck.js';
 import { CaptureError } from '../src/speech/capture.js';
 import { MemoryStorage, fakeRuntime, gpuOk, gpuMissing, goodFeedback, FakeTranscriber, FakeMic, until, tick } from './helpers.js';
 
-function makeController({ runtime, gpu = gpuOk, transcriber = new FakeTranscriber(), mic = () => new FakeMic(), settings } = {}) {
+function makeController({ runtime, gpu = gpuOk, transcriber = new FakeTranscriber(), mic = () => new FakeMic(), settings, connection = null } = {}) {
   const store = new Store({ local: new MemoryStorage(), session: new MemoryStorage() });
   if (settings) store.saveSettings(settings);
   const coach = new Coach({ runtime: runtime ?? fakeRuntime(), gpuDetector: gpu });
-  const ctl = new Controller({ store, coach, transcriber, micFactory: mic, rng: makeRng(11) });
+  const ctl = new Controller({ store, coach, transcriber, micFactory: mic, rng: makeRng(11), connection });
   return { ctl, store, coach };
 }
 
@@ -430,5 +430,58 @@ describe('controller: scenarios, persistence, settings', () => {
     assert.equal(ctl.gate, true);
     ctl.shuffle();
     assert.equal(ctl.state.phase, 'ready');
+  });
+});
+
+describe('controller: background model download', () => {
+  test('starting play downloads the coach automatically, no prompt', async () => {
+    const rt = fakeRuntime();
+    const { ctl } = makeController({ runtime: rt });
+    ctl.startGame();
+    await until(() => ctl.coach.status === 'ready');
+    assert.equal(rt.loads, 1);
+    assert.equal(ctl.gate, false);
+  });
+
+  test('an answer finished mid-download is sent as soon as the coach is ready', async () => {
+    const rt = fakeRuntime({ responses: [goodFeedback('think-fast')] });
+    const slowLoad = rt.load;
+    rt.load = async (...a) => {
+      await tick(60);
+      return slowLoad(...a);
+    };
+    const { ctl } = makeController({ runtime: rt, settings: { scenarioSource: 'deck' } });
+    ctl.startGame('think-fast');
+    ctl.edit('A quick answer.');
+    await ctl.submit();
+    assert.notEqual(ctl.coach.status, 'ready');
+    assert.equal(ctl.pendingSubmitAfterWake, true, 'waits for the download instead of prompting');
+    await until(() => ctl.state.phase === 'feedback');
+  });
+
+  test('on mobile data or Data Saver, nothing new downloads without asking', async () => {
+    const rt = fakeRuntime();
+    const { ctl } = makeController({ runtime: rt, connection: { saveData: true } });
+    ctl.startGame();
+    await tick(30);
+    assert.equal(rt.loads, 0);
+    assert.equal(ctl.coach.status, 'idle');
+    assert.equal(ctl.isMetered(), true);
+  });
+
+  test('on mobile data, an already-downloaded coach still wakes up', async () => {
+    const rt = fakeRuntime();
+    rt.cached = true;
+    const { ctl } = makeController({ runtime: rt, connection: { type: 'cellular' } });
+    ctl.startGame();
+    await until(() => ctl.coach.status === 'ready');
+  });
+
+  test('the automatic download can be switched off', async () => {
+    const rt = fakeRuntime();
+    const { ctl } = makeController({ runtime: rt, settings: { autoDownload: false } });
+    ctl.startGame();
+    await tick(30);
+    assert.equal(rt.loads, 0);
   });
 });

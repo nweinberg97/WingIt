@@ -139,7 +139,7 @@ export class GameView {
     const p = ctl.state.phase;
     if (p === 'recording') return 'recording';
     if (p === 'transcribing') return 'transcribing';
-    if (p === 'evaluating') return 'sent';
+    if (p === 'evaluating' || (p === 'review' && ctl.pendingSubmitAfterWake)) return 'sent';
     if (p === 'feedback') return 'done';
     if (p === 'review' && ctl.inputMode === 'voice') return 'review';
     if (ctl.inputMode === 'type') return 'typing';
@@ -280,7 +280,7 @@ export class GameView {
     // "You said" bubble once the answer is sent
     const showSaid = mode === 'sent' || mode === 'done';
     this.youSaid.hidden = !showSaid;
-    if (showSaid) this.youSaid.querySelector('blockquote p').textContent = s.submitted;
+    if (showSaid) this.youSaid.querySelector('blockquote p').textContent = s.submitted || s.transcript;
     if (change === 'SUBMIT') announce(`Sent: ${s.submitted}`);
   }
 
