@@ -19,6 +19,7 @@ const COPY = {
   timeout: { title: 'The coach took too long', body: 'Your answer is still here. Try again, or switch to the Lite coach model if this keeps happening.' },
   guard: { title: 'Safety check is off, so the AI is off', body: 'WingIt only runs AI files after checking their fingerprints, and this browser blocked that check (common in private browsing). Open WingIt in a normal window to use voice and feedback. You can still read prompts and practise.' },
   'integrity-blocked': { title: 'A file was blocked', body: 'A downloaded file didn\'t match its fingerprint, so WingIt refused to use it. Nothing ran. Try again later; if it keeps happening, the file source may have been tampered with.' },
+  stalled: { title: 'The coach stopped responding', body: 'This usually means your graphics card ran out of memory. Your answer is still here. Try again, close other heavy tabs, or pick the smaller coach in Settings.' },
   'invalid-output': { title: 'The coach got tongue-tied', body: 'Its feedback didn\'t come back in a usable shape. Your answer is still here; try again.' },
 };
 

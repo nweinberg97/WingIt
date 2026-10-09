@@ -362,6 +362,12 @@ export class Controller {
     if (this.coach.status !== 'ready') {
       if (this.coach.status === 'loading' || this.warming) {
         this.pendingSubmitAfterWake = true;
+      } else if (this.coach.status === 'error' && this.settings.modelsConsent && this.coach.error?.code === 'stalled') {
+        // The coach went silent last time (lost GPU): quietly reload it, then send.
+        this.pendingSubmitAfterWake = true;
+        this.wakeCoach();
+        this.emit('gate');
+        return;
       }
       this.gate = true;
       this.emit('gate');

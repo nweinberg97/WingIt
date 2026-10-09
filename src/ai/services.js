@@ -12,6 +12,7 @@ export async function evaluateAnswer(coach, scenario, transcript, { isStale, tim
   const messages = evaluationMessages(scenario, transcript);
   const schema = feedbackJsonSchema(scenario.modeId);
   let lastError = 'unknown';
+  let emptyReplies = 0;
   for (let attempt = 0; attempt < 2; attempt++) {
     const { text, finishReason } = await coach.complete(messages, {
       schema,
@@ -21,6 +22,11 @@ export async function evaluateAnswer(coach, scenario, transcript, { isStale, tim
       isStale,
     });
     if (isStale?.()) throw new CoachError('stale', 'Superseded');
+    if (!text || !String(text).trim()) {
+      emptyReplies += 1;
+      lastError = 'empty';
+      continue;
+    }
     if (finishReason === 'length') {
       lastError = 'incomplete';
       continue;
@@ -35,6 +41,11 @@ export async function evaluateAnswer(coach, scenario, transcript, { isStale, tim
     const v = validateFeedback(raw, { modeId: scenario.modeId, transcript });
     if (v.ok) return v.feedback;
     lastError = v.error;
+  }
+  if (emptyReplies === 2) {
+    // A model that says nothing at all has usually lost its GPU (out of memory). Force a fresh load next time.
+    coach.set?.({ status: 'error', error: new CoachError('stalled', 'The coach stopped responding.') });
+    throw new CoachError('stalled', 'The coach returned nothing twice; the graphics card may have run out of memory.');
   }
   throw new CoachError('invalid-output', `The coach's answer didn't pass validation (${lastError}).`);
 }

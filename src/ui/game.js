@@ -293,7 +293,7 @@ export class GameView {
     if (this.lastErr === err) return;
     this.lastErr = err;
     const { ctl } = this;
-    const canRetrySend = ['timeout', 'invalid-output', 'model', 'download', 'memory'].includes(err.code) && ctl.state.phase === 'review';
+    const canRetrySend = ['timeout', 'invalid-output', 'model', 'download', 'memory', 'stalled'].includes(err.code) && ctl.state.phase === 'review';
     const canRerecord = ['transcribe-failed', 'transcribe-download', 'silent', 'empty-transcript', 'busy'].includes(err.code);
     const box = h(
       'div.alert',

@@ -116,6 +116,13 @@ describe('evaluation service', () => {
     await evaluateAnswer(coach, scenario, transcript);
     assert.equal(rt.calls.length, 2);
   });
+  test('a coach that goes silent (lost GPU) is reported as stalled and reloaded next time', async () => {
+    const rt = fakeRuntime({ responses: ['', '   '] });
+    const coach = new Coach({ runtime: rt, gpuDetector: gpuOk });
+    await assert.rejects(evaluateAnswer(coach, scenario, transcript), (e) => e.code === 'stalled');
+    assert.equal(coach.status, 'error', 'next attempt reloads the model');
+  });
+
   test('fails honestly instead of inventing feedback', async () => {
     const rt = fakeRuntime({ responses: ['not json', { overall_feedback: 'hi' }] });
     const coach = new Coach({ runtime: rt, gpuDetector: gpuOk });

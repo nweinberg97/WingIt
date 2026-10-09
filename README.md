@@ -155,18 +155,14 @@ CI runs all of these (`.github/workflows/test.yml`). The `real-models` workflow 
 
 | Suite | Result | What's real vs mocked |
 | --- | --- | --- |
-| Static checks (`scripts/check.mjs`) | ✅ 29 files | Real |
-| Unit (`tests/unit.test.js`) | ✅ | Real code: modes and rubrics, deck generation and repetition avoidance, scenario validation and safety, feedback validation (incl. fabricated-quote removal and malformed JSON), answer validation, prompt-injection wrapping, state machine and stale tokens, persistence and corruption handling, cache clearing, resampling |
-| Integration (`tests/integration.test.js`) | ✅ (95 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
-| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 20/20 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
+| Static checks (`scripts/check.mjs`) | ✅ | Real. Syntax, no `innerHTML`/`eval`, no remote AI APIs, no CDN URLs in app code, CSP allows scripts from this site only, capture code can't persist or transmit audio |
+| Unit + integration (`tests/*.test.js`) | ✅ 99 tests | Real controller, state machine, validation, prompts, store, coach queue, timeouts and retries, consent rules, guard helpers. **Model runtime, transcriber and microphone are fakes** |
+| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 21/21 | Real UI. **Model runtimes are fakes.** The mic test uses the **real capture pipeline** with Chromium's fake audio device. Also covers consent before download, the waiting show, keyboard-only play, settings, theme, mobile layout, the safety explainer, and model output rendered as inert text |
+| Integrity guard (`tests/e2e/run_guard.py`, Chromium) | ✅ 18/18 | **Real service worker**, real cross-origin server. Matching files load; tampered, unlisted and altered self-hosted files are blocked from both the page and a worker, including via `Cache.add` (how WebLLM downloads). Outgoing POSTs are blocked. Old unchecked saved files are deleted. The explainer shows the live status |
+| Deploy verification (`pages` workflow) | ✅ | Real. On a fresh GitHub machine, all rebuilt vendor files matched their recorded SHA-256 fingerprints |
+| **Real models** (`real-models` workflow, Chromium on GitHub) | ✅ speech · ⚠️ coach | **No fakes.** The real Whisper tiny.en, loaded through the guard, transcribed a spoken sentence ("The pigeons have formed a union…") in 9 s; the guard blocked nothing legitimate, and only WingIt's own site and Hugging Face were contacted. The real coach (Qwen2.5 0.5B) **downloaded and passed every fingerprint check**, but the runner's software-only GPU (SwiftShader) ran out of memory when generating, so feedback quality was not verified there |
 
-**Not verified in this build environment.** Its network blocks jsDelivr and Hugging Face, so these need a manual check on a real device:
-- [ ] Real Whisper download and transcription quality (`base.en` and `tiny.en`).
-- [ ] Real WebLLM download, load time and feedback quality for each coach model, including the f32 fallback.
-- [ ] That the pinned CDN builds import cleanly inside the module workers.
-- [ ] Safari / Firefox WebGPU behaviour, and iOS microphone behaviour.
-
-Everything around those calls (prompts, schemas, retries, validation, errors) is tested. The calls themselves are not.
+**Still to verify by hand on a real device:** coach feedback quality and speed on a real GPU (Chrome/Edge laptop, Safari 26, Android Chrome), and iOS microphone behaviour.
 
 ---
 

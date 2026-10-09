@@ -170,6 +170,25 @@ def first_visit_asks_before_downloading(browser, base):
 
 
 @case
+def safety_explainer(browser, base):
+    page = new_page(browser, base, "?fresh=1")
+    page.get_by_role("button", name="Is it safe?").click()
+    dlg = page.get_by_role("dialog")
+    expect(dlg).to_contain_text("Is WingIt safe?")
+    expect(dlg).to_contain_text("How every file is checked")
+    expect(dlg).to_contain_text("Why there's a download")
+    expect(page.locator(".safety-status")).not_to_be_empty()
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(SHOTS / "safety-explainer.png"), full_page=True)
+    page.keyboard.press("Escape")
+    # Also reachable from the setup prompt.
+    page.get_by_role("button", name="Start playing").click()
+    wait_kind(page, "gate")
+    page.get_by_role("button", name="Is this safe? See how every file is checked").click()
+    expect(page.get_by_role("dialog", name="Is WingIt safe?")).to_be_visible()
+
+
+@case
 def comedy_show_jokes(browser, base):
     page = new_page(browser, base, "?slow=12000")
     page.get_by_role("button", name="Start playing").click()
