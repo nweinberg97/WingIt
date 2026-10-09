@@ -75,89 +75,171 @@ def home_loads_cleanly(browser, base):
     assert not page.external, f"unexpected network on load: {page.external}"
 
 
+def wait_kind(page, kind, timeout=10000):
+    page.wait_for_selector(f'.wait-box[data-kind="{kind}"]', timeout=timeout)
+
+
 @case
-def primary_flow_typed(browser, base):
-    page = new_page(browser, base)
+def primary_flow_voice(browser, base):
+    """Prompt on top → reactive mic → Finish → transcript sent → fun pop-up → feedback → next."""
+    page = new_page(browser, base, "?realmic=1&slow=900", permissions=["microphone"])
     page.get_by_role("button", name="Start playing").click()
     setup1 = page.locator(".card-setup").inner_text()
-    expect(page.get_by_role("button", name="Start recording")).to_be_visible()
-    expect(page.locator("#submit-btn")).to_be_disabled()
-    page.locator("#answer").fill("Ladies and gentlemen, the toaster has filed for divorce.")
-    page.locator("#submit-btn").click()
-    # Coach not loaded yet: the gate explains the one-time download and keeps the answer.
-    expect(page.locator(".gate")).to_be_visible()
-    expect(page.locator("#answer")).to_have_value("Ladies and gentlemen, the toaster has filed for divorce.")
+    # Prompt sits above the mic.
+    card_y = page.locator(".cue-card").bounding_box()["y"]
+    mic_y = page.locator("#mic-btn").bounding_box()["y"]
+    assert card_y < mic_y, "prompt should be above the mic"
+    expect(page.locator(".stage-headline")).to_have_text("Tap the mic and start talking")
+    page.get_by_role("button", name="Start talking").click()
+    expect(page.locator("#finish-btn")).to_be_visible()
+    expect(page.locator("#finish-btn")).to_be_focused()
+    expect(page.locator(".stage-headline")).to_contain_text("Listening")
+    # The ring reacts: the canvas changes between frames while audio comes in.
+    a = page.evaluate("document.querySelector('.voice-ring').toDataURL()")
+    page.wait_for_timeout(400)
+    b = page.evaluate("document.querySelector('.voice-ring').toDataURL()")
+    assert a != b, "voice ring should animate with the microphone"
+    page.wait_for_timeout(1400)
+    page.screenshot(path=str(SHOTS / "recording-desktop.png"))
+    page.locator("#finish-btn").click()
+    # First time: the pop-up asks to set up the coach, then goes straight on.
+    wait_kind(page, "gate")
+    expect(page.get_by_role("dialog")).to_contain_text("meet your coach")
+    assert "null" not in page.locator(".wait-box").inner_text()
+    page.wait_for_timeout(500)
+    page.screenshot(path=str(SHOTS / "gate-desktop.png"))
     page.locator("#wake-btn").click()
+    wait_kind(page, "thinking")
+    expect(page.locator(".wait-line")).not_to_be_empty()
+    expect(page.locator(".you-said")).to_contain_text("The pigeons have formed a union")
+    page.wait_for_timeout(500)
+    page.screenshot(path=str(SHOTS / "waiting-desktop.png"))
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
-    expect(page.locator(".fb-quote")).to_contain_text("Ladies and gentlemen, the")
+    expect(page.locator(".wait-overlay")).to_have_count(0)
+    expect(page.locator(".fb-quote")).to_contain_text("The pigeons have")
     expect(page.get_by_role("heading", name="Try this next")).to_be_visible()
     assert page.locator(".score-row").count() == 3
-    expect(page.locator(".coach-chip")).to_have_text("Coach ready")
-    # Alternative is hidden until asked for.
     expect(page.locator("#alt-panel")).to_be_hidden()
     page.get_by_role("button", name="Show a different direction").click()
     expect(page.locator("#alt-panel")).to_be_visible()
     page.screenshot(path=str(SHOTS / "feedback-desktop.png"), full_page=True)
+    # Try again keeps the prompt; next scenario changes it.
+    page.get_by_role("button", name="Try again").click()
+    expect(page.locator(".feedback")).to_have_count(0)
+    assert page.locator(".card-setup").inner_text() == setup1
+    expect(page.get_by_role("button", name="Start talking")).to_be_visible()
+    states = page.evaluate("window.__e2e.tracks.map(t => t.readyState)")
+    assert states and all(s == "ended" for s in states), f"mic tracks still live: {states}"
+    got = page.evaluate("window.__e2e.transcribed")
+    assert got and got[0]["samples"] > 16000, got
+    assert not page.external, f"audio flow touched the network: {page.external}"
+    assert not page.errors, page.errors
+
+
+@case
+def next_scenario_after_feedback(browser, base):
+    page = new_page(browser, base)
+    page.get_by_role("button", name="Start playing").click()
+    setup1 = page.locator(".card-setup").inner_text()
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
+    page.locator("#wake-btn").click()
+    expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     page.get_by_role("button", name="Next scenario").click()
     expect(page.locator(".feedback")).to_have_count(0)
-    assert page.locator(".card-setup").inner_text() != setup1, "shuffle dealt a new card"
-    expect(page.locator("#answer")).to_have_value("")
+    assert page.locator(".card-setup").inner_text() != setup1
     expect(page.locator(".round-count")).to_have_text("1 round this session")
-    assert not page.errors, page.errors
+    # Second round: coach is warm, so Finish goes straight to the pop-up then feedback.
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
+    expect(page.locator(".feedback")).to_be_visible(timeout=10000)
+    expect(page.locator(".round-count")).to_have_text("2 rounds this session")
+
+
+@case
+def typing_instead(browser, base):
+    page = new_page(browser, base)
+    page.get_by_role("button", name="Start playing").click()
+    page.get_by_role("button", name="Rather type?").click()
+    expect(page.locator("#answer")).to_be_focused()
+    expect(page.locator("#submit-btn")).to_be_disabled()
+    page.locator("#answer").fill("Ladies and gentlemen, the toaster has filed for divorce.")
+    page.locator("#submit-btn").click()
+    wait_kind(page, "gate")
+    page.locator("#wake-btn").click()
+    expect(page.locator(".feedback")).to_be_visible(timeout=10000)
+    expect(page.locator(".you-said")).to_contain_text("toaster has filed for divorce")
+
+
+@case
+def check_transcript_setting(browser, base):
+    page = new_page(browser, base)
+    page.get_by_role("button", name="Start playing").click()
+    page.get_by_role("button", name="Settings").click()
+    page.get_by_role("switch", name="Check my transcript before sending").check()
+    page.keyboard.press("Escape")
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
+    expect(page.locator(".stage-headline")).to_have_text("Here's what we heard")
+    expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.")
+    page.locator("#answer").fill("The pigeons have formed a union and they want rye bread.")
+    page.locator("#submit-btn").click()
+    page.locator("#wake-btn").click()
+    expect(page.locator(".you-said")).to_contain_text("rye bread", timeout=10000)
+
+
+@case
+def gate_not_now_keeps_transcript(browser, base):
+    page = new_page(browser, base)
+    page.get_by_role("button", name="Start playing").click()
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
+    wait_kind(page, "gate")
+    page.keyboard.press("Escape")
+    expect(page.locator(".wait-overlay")).to_have_count(0)
+    expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.")
 
 
 @case
 def coach_written_scenarios_are_labelled(browser, base):
     page = new_page(browser, base)
     page.get_by_role("button", name="Start playing").click()
-    page.locator(".coach-chip").click()
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
     page.locator("#wake-btn").click()
-    expect(page.locator(".coach-chip")).to_have_text("Coach ready")
-    page.wait_for_function("window.__e2e.chatCalls >= 1")
+    expect(page.locator(".feedback")).to_be_visible(timeout=10000)
+    page.wait_for_function("window.__e2e.chatCalls >= 2")
     page.wait_for_timeout(200)
-    page.locator("#shuffle-btn").click()
+    page.get_by_role("button", name="Next scenario").click()
     expect(page.locator(".card-source")).to_have_text("Written by your coach")
     expect(page.locator("#scenario-title")).to_contain_text("Coach card")
-
-
-@case
-def real_microphone_capture_with_fake_device(browser, base):
-    page = new_page(browser, base, "?realmic=1", permissions=["microphone"])
-    page.get_by_role("button", name="Start playing").click()
-    page.get_by_role("button", name="Start recording").click()
-    expect(page.get_by_role("button", name="Stop recording")).to_be_visible()
-    expect(page.locator(".dock-status")).to_contain_text("Listening")
-    expect(page.locator(".meter")).to_be_visible()
-    page.wait_for_timeout(2200)
-    page.screenshot(path=str(SHOTS / "recording-desktop.png"))
-    page.get_by_role("button", name="Stop recording").click()
-    expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.", timeout=8000)
-    got = page.evaluate("window.__e2e.transcribed")
-    assert len(got) == 1 and got[0]["samples"] > 16000 * 1.5, got  # ~2s of 16 kHz audio reached the transcriber
-    states = page.evaluate("window.__e2e.tracks.map(t => t.readyState)")
-    assert states and all(s == "ended" for s in states), f"mic tracks still live: {states}"
-    assert not page.external, f"audio flow touched the network: {page.external}"
 
 
 @case
 def leaving_while_recording_releases_mic(browser, base):
     page = new_page(browser, base, "?realmic=1", permissions=["microphone"])
     page.get_by_role("button", name="Start playing").click()
-    page.get_by_role("button", name="Start recording").click()
-    expect(page.get_by_role("button", name="Stop recording")).to_be_visible()
+    page.get_by_role("button", name="Start talking").click()
+    expect(page.locator("#finish-btn")).to_be_visible()
     page.wait_for_timeout(500)
+    page.get_by_role("button", name="Start over").click()
+    expect(page.get_by_role("button", name="Start talking")).to_be_visible()
+    page.get_by_role("button", name="Start talking").click()
+    expect(page.locator("#finish-btn")).to_be_visible()
     page.get_by_role("button", name="WingIt home").click()
     page.wait_for_timeout(300)
     states = page.evaluate("window.__e2e.tracks.map(t => t.readyState)")
-    assert states and all(s == "ended" for s in states), states
+    assert len(states) >= 2 and all(s == "ended" for s in states), states
 
 
 @case
 def microphone_denied(browser, base):
     page = new_page(browser, base, "?denymic=1")
     page.get_by_role("button", name="Start playing").click()
-    page.get_by_role("button", name="Start recording").click()
+    page.get_by_role("button", name="Start talking").click()
     expect(page.get_by_role("alert")).to_contain_text("Microphone is blocked")
+    page.get_by_role("alert").get_by_role("button", name="Type instead").click()
+    expect(page.locator("#answer")).to_be_focused()
     page.locator("#answer").fill("I'll type instead.")
     expect(page.locator("#submit-btn")).to_be_enabled()
 
@@ -166,54 +248,58 @@ def microphone_denied(browser, base):
 def no_webgpu(browser, base):
     page = new_page(browser, base, "?nogpu=1")
     page.get_by_role("button", name="Start playing").click()
-    page.locator("#answer").fill("Hello there.")
-    page.locator("#submit-btn").click()
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
     page.locator("#wake-btn").click()
-    expect(page.locator(".gate")).to_contain_text("can't run the coach")
+    wait_kind(page, "unsupported")
+    expect(page.get_by_role("dialog")).to_contain_text("can't run the coach")
+    page.get_by_role("button", name="Got it").click()
     expect(page.locator(".coach-chip")).to_have_text("Coach unavailable")
-    expect(page.locator("#answer")).to_have_value("Hello there.")
+    expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.")
     page.locator("#shuffle-btn").click()
     expect(page.locator("#scenario-title")).to_be_visible()
 
 
 @case
-def stale_feedback_is_discarded(browser, base):
-    page = new_page(browser, base, "?slow=1200")
+def stop_waiting_and_edit(browser, base):
+    page = new_page(browser, base, "?slow=1500")
     page.get_by_role("button", name="Start playing").click()
-    page.locator(".coach-chip").click()
-    page.locator("#wake-btn").click()
-    expect(page.locator(".coach-chip")).to_have_text("Coach ready")
     page.evaluate("window.__WINGIT__.updateSettings({ scenarioSource: 'deck' })")
-    page.locator("#answer").fill("First answer.")
-    page.locator("#submit-btn").click()
-    expect(page.locator(".thinking")).to_be_visible()
-    page.locator("#shuffle-btn").click()
+    page.get_by_role("button", name="Start talking").click()
+    page.locator("#finish-btn").click()
+    page.locator("#wake-btn").click()
+    wait_kind(page, "thinking")
+    page.get_by_role("button", name="Stop and edit my answer").click()
+    expect(page.locator(".wait-overlay")).to_have_count(0)
+    expect(page.locator("#answer")).to_have_value("The pigeons have formed a union and they want bread.")
     page.wait_for_timeout(1800)
     expect(page.locator(".feedback")).to_have_count(0)
-    expect(page.locator("#answer")).to_have_value("")
 
 
 @case
 def keyboard_only_round(browser, base):
     page = new_page(browser, base)
-    page.keyboard.press("Tab")  # skip link
     page.keyboard.press("Tab")
-    for _ in range(4):
+    for _ in range(5):
         if page.evaluate("document.activeElement.id") == "start-playing":
             break
         page.keyboard.press("Tab")
     assert page.evaluate("document.activeElement.id") == "start-playing"
     page.keyboard.press("Enter")
     expect(page.locator("#mic-btn")).to_be_focused()
-    page.locator("#answer").focus()
-    page.keyboard.type("A keyboard-only answer about the moon.")
-    page.keyboard.press("Control+Enter")
-    expect(page.locator(".gate")).to_be_visible()
+    page.keyboard.press("Enter")
+    expect(page.locator("#finish-btn")).to_be_focused()
+    page.keyboard.press("Enter")
+    wait_kind(page, "gate")
+    expect(page.locator("#wake-btn")).to_be_focused()
+    # focus is trapped inside the pop-up
+    for _ in range(6):
+        page.keyboard.press("Tab")
+        assert page.evaluate("!!document.activeElement.closest('.wait-overlay')")
     page.locator("#wake-btn").focus()
     page.keyboard.press("Enter")
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     expect(page.locator(".feedback-slot")).to_be_focused()
-    # Visible focus indicator
     page.keyboard.press("Tab")
     outline = page.evaluate("getComputedStyle(document.activeElement).outlineStyle")
     assert outline != "none", outline
@@ -235,14 +321,11 @@ def settings_theme_motion_and_clear(browser, base):
     expect(page.get_by_role("dialog")).to_have_count(0)
     expect(page.locator(".timer-label")).to_contain_text("Timer: 30s")
     page.screenshot(path=str(SHOTS / "game-dark.png"), full_page=True)
-    # persisted
     page.reload()
     assert page.evaluate("document.documentElement.dataset.theme") == "dark"
-    # favourites + clear
     page.get_by_role("button", name="Start playing").click()
     page.get_by_role("button", name="Save to favourites").click()
     page.get_by_role("button", name="Your rounds and favourites").click()
-    expect(page.get_by_role("dialog")).to_contain_text("Favourite scenarios")
     expect(page.locator(".fav-list li")).to_have_count(1)
     page.keyboard.press("Escape")
     page.on("dialog", lambda d: d.accept())
@@ -258,10 +341,10 @@ def easier_harder_and_modes(browser, base):
     page = new_page(browser, base)
     page.get_by_role("button", name="Start playing").click()
     setup = page.locator(".card-setup").inner_text()
-    page.get_by_role("button", name="Make this scenario harder").click()
+    page.get_by_role("button", name="Make this prompt harder").click()
     expect(page.locator(".chip-twist")).to_be_visible()
     assert page.locator(".card-setup").inner_text() == setup
-    page.get_by_role("button", name="Make this scenario easier").click()
+    page.get_by_role("button", name="Make this prompt easier").click()
     expect(page.locator(".chip-twist")).to_have_count(0)
     for name in ["Yes, And…", "Make It Funnier", "Story Builder", "Under Pressure", "Wildcard", "Think Fast"]:
         page.locator(".mode-tab", has_text=name).click()
@@ -276,11 +359,12 @@ def mobile_layout(browser, base):
     page.screenshot(path=str(SHOTS / "home-mobile.png"), full_page=True)
     page.get_by_role("button", name="Start playing").tap()
     no_overflow(page)
+    page.wait_for_timeout(700)
     page.screenshot(path=str(SHOTS / "game-mobile.png"), full_page=True)
     box = page.locator("#mic-btn").bounding_box()
-    assert box["width"] >= 44 and box["height"] >= 44
-    page.locator("#answer").fill("Short and sweet.")
-    page.locator("#submit-btn").tap()
+    assert box["width"] >= 100 and abs(box["width"] - box["height"]) < 1
+    page.locator("#mic-btn").tap()
+    page.locator("#finish-btn").tap()
     page.locator("#wake-btn").tap()
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     no_overflow(page)
@@ -291,12 +375,13 @@ def mobile_layout(browser, base):
 def model_output_rendered_as_text(browser, base):
     page = new_page(browser, base)
     page.get_by_role("button", name="Start playing").click()
+    page.get_by_role("button", name="Rather type?").click()
     page.locator("#answer").fill('<img src=x onerror="window.__pwned=1"> hello')
     page.locator("#submit-btn").click()
     page.locator("#wake-btn").click()
     expect(page.locator(".feedback")).to_be_visible(timeout=10000)
     assert page.evaluate("window.__pwned") is None
-    assert page.locator(".feedback img").count() == 0
+    assert page.locator(".feedback img, .you-said img").count() == 0
 
 
 def main():

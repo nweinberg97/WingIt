@@ -89,15 +89,13 @@ export function renderFeedback(ctl, s) {
     h('p.score-note', { text: 'Scores are practice signals from a small AI model, not a verdict on your creativity.' }),
   );
 
-  const answer = h('details.fb-answer', {}, h('summary', { text: 'Your answer' }), h('p', { text: s.submitted }));
-
   const copyBtn = h('button.btn.btn-ghost', { type: 'button', onclick: () => copy(ctl.feedbackText(), copyBtn) }, icon('copy', { size: 16 }), h('span', { text: 'Copy notes' }));
 
   const actions = h(
     'div.fb-actions',
     {},
     h('button.btn.btn-primary.btn-xl', { type: 'button', onclick: () => ctl.shuffle(), id: 'next-round' }, icon('shuffle'), 'Next scenario'),
-    h('button.btn', { type: 'button', onclick: () => ctl.retry() }, icon('retry'), 'Try this one again'),
+    h('button.btn', { type: 'button', onclick: () => ctl.retry() }, icon('retry'), 'Try again'),
     h('button.btn.btn-ghost', { type: 'button', onclick: () => { ctl.harder(); } }, icon('up', { size: 16 }), 'Harder version'),
     copyBtn,
   );
@@ -108,7 +106,6 @@ export function renderFeedback(ctl, s) {
     header,
     h('div.fb-grid', {}, h('div.fb-main', {}, strongest, worked, tryNext, alt), scorecard),
     f.closing ? h('p.fb-closing', { text: f.closing }) : null,
-    answer,
     actions,
     h('p.fb-provenance', { text: `Feedback written by ${ctl.coach.loadedModelId ?? 'your local model'}, running in this browser.` }),
   );

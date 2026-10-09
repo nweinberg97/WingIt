@@ -148,6 +148,24 @@ export class MicCapture {
     return Math.min(1, Math.sqrt(s / data.length) * 4);
   }
 
+  /** Frequency magnitudes 0..1 for the voice visualizer (no audio is kept). */
+  frequencies(bins = 48) {
+    if (!this.analyser) return null;
+    const data = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyser.getByteFrequencyData(data);
+    // Voice lives mostly in the lower third of the spectrum.
+    const usable = Math.floor(data.length * 0.35);
+    const out = new Float32Array(bins);
+    for (let i = 0; i < bins; i++) {
+      const a = Math.floor((i / bins) * usable);
+      const b = Math.max(a + 1, Math.floor(((i + 1) / bins) * usable));
+      let m = 0;
+      for (let j = a; j < b; j++) m = Math.max(m, data[j]);
+      out[i] = m / 255;
+    }
+    return out;
+  }
+
   /** A 16 kHz copy of what has been captured so far (for live preview). */
   async snapshot() {
     if (!this.active || !this.chunks.length) return null;

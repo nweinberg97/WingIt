@@ -74,6 +74,7 @@ export function openSettings(ctl, ui) {
     {},
     h('h3', { text: 'Play' }),
     toggle('Challenge timer', 'Adds a countdown to each answer (length depends on the mode). Recording stops when it hits zero.', st.timer, (v) => ctl.updateSettings({ timer: v })),
+    toggle('Check my transcript before sending', 'When on, Finish shows your transcript so you can fix it first. When off, it goes straight to your coach.', st.reviewBeforeSend, (v) => ctl.updateSettings({ reviewBeforeSend: v })),
     toggle('Live transcript preview', 'Shows rough text while you talk. Uses a little more processing power.', st.livePreview, (v) => ctl.updateSettings({ livePreview: v })),
     radioGroup('src', 'Where scenarios come from', [
       ['auto', 'Coach + deck', 'Once the coach is awake it writes fresh scenarios; the deck fills in instantly.'],
@@ -139,7 +140,7 @@ export function openHelp() {
     'div.help',
     {},
     h('h3', { text: 'How to play' }),
-    h('p', { text: 'Pick a mode, read the card, tap the mic and answer out loud. Stop when you\'re done, tidy up the text if the transcription slipped, then get feedback. Shuffle whenever you like.' }),
+    h('p', { text: 'Read the prompt, tap the mic and answer out loud. The ring around the mic moves with your voice. Tap Finish and your words are written down on your device and sent to your coach. Moments later you get notes, then try again or grab a new prompt. Prefer typing? Tap \u201cRather type?\u201d under the mic.' }),
     h('ul.mode-list', {}, MODES.map((m) => h('li', {}, h('strong', { text: `${m.name}: ` }), m.objective))),
     h('h3', { text: 'Keyboard' }),
     h('p', { text: 'Tab moves between controls. Space or Enter presses buttons. Ctrl+Enter (or ⌘+Enter) in the answer box gets feedback. Press S anywhere else to shuffle.' }),

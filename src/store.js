@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   motion: 'system', // system | reduce | full
   timer: false,
   livePreview: true,
+  reviewBeforeSend: false, // false = Finish sends the transcript straight to the coach
   scenarioSource: 'auto', // auto (AI when the coach is awake) | deck
   coachModel: 'qwen2.5-1.5b',
   transcribeModel: 'whisper-base.en',

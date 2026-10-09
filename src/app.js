@@ -44,6 +44,7 @@ function render(change) {
   if (ctl.view !== currentView) {
     currentView = ctl.view;
     if (ctl.view === 'home') {
+      game?.destroy();
       game = null;
       root.replaceChildren(renderHome(ctl, ui));
     } else {

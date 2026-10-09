@@ -36,7 +36,8 @@ export class Controller {
     this.speech = { status: this.transcriber.status, fraction: 0 };
     this.prefetched = null; // { modeId, difficulty, scenario }
     this.prefetching = false;
-    this.gate = false; // show the "wake the coach" panel
+    this.gate = false; // show the "wake the coach" prompt
+    this.inputMode = 'voice'; // voice | type
     this.pendingSubmitAfterWake = false;
     this.listeners = new Set();
     this.ticker = null;
@@ -258,8 +259,13 @@ export class Controller {
       const text = await this.transcriber.transcribe(pcm); // buffer is transferred to the worker and detached here
       pcm = null;
       const v = validateAnswer(text ?? '');
-      if (!v.ok && v.error === 'empty') this.dispatch({ type: 'TRANSCRIBE_FAILED', token, error: describeError('empty-transcript') });
-      else this.dispatch({ type: 'TRANSCRIBED', token, text: v.text });
+      if (!v.ok && v.error === 'empty') {
+        this.dispatch({ type: 'TRANSCRIBE_FAILED', token, error: describeError('empty-transcript') });
+      } else {
+        this.dispatch({ type: 'TRANSCRIBED', token, text: v.text });
+        // Finish → straight to the coach, unless the player wants to check the transcript first.
+        if (!this.settings.reviewBeforeSend && this.state.token === token && this.state.phase === 'review') await this.submit();
+      }
     } catch (err) {
       pcm = null;
       const code = /fetch|network|download|404|403/i.test(err.message) ? 'transcribe-download' : 'transcribe-failed';
@@ -282,6 +288,12 @@ export class Controller {
   }
 
   // ---------- answer + evaluation ----------
+  setInputMode(mode) {
+    if (!['voice', 'type'].includes(mode) || !['ready', 'review'].includes(this.state.phase)) return;
+    this.inputMode = mode;
+    this.emit('inputMode');
+  }
+
   edit(text) {
     this.dispatch({ type: 'EDIT', text });
   }

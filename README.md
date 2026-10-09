@@ -28,10 +28,11 @@ Each mode is a data entry in `src/modes.js`: objective, generation constraints, 
 Each dimension has written 1–5 criteria, and the evaluator receives them.
 
 ### A round
-1. **Card.** Comes from the *deck* (a procedural generator that combines setting, role, object, complication, twist and bonus ingredients, so it's instant and works offline) or is *written by your coach* (the local model, seeded with deck ingredients for variety and prefetched in the background so shuffling stays instant). The card always says which.
-2. **Answer.** Tap the mic and talk. You get a live level meter, an elapsed timer, an optional rough live transcript, and an optional challenge countdown. Stop, and Whisper transcribes on your device. Edit the text if it slipped, or just type instead.
-3. **Notes.** You get: your strongest move (quoted from your own words, and verified to actually appear in your transcript), what worked, one thing to try next, a different direction (hidden until you ask for it), a 3-dimension scorecard, and a sign-off.
-4. **Keep playing.** Next scenario, try the same one again, a harder or easier version of the *same* situation, switch modes, copy your notes, or save the card to favourites.
+1. **Prompt (top).** An improv card from the *deck* (a procedural generator that combines setting, role, object, complication, twist and bonus ingredients, so it's instant and works offline), or *written by your coach* (the local model, seeded with deck ingredients and prefetched in the background so a new prompt appears instantly). The card always says which.
+2. **Mic (underneath).** Tap the big mic and talk. A ring of bars around it moves with your voice, and the headline counts the time (or counts down, if the challenge timer is on). Tap **Finish** when you're done, or **Start over**. Prefer typing? "Rather type?" swaps the mic for a text box.
+3. **Transcript, sent.** Whisper writes down what you said on your device. The text appears as a "You said" bubble and goes straight to the coach. Turn on *Check my transcript before sending* in Settings if you'd rather fix it first.
+4. **Waiting pop-up.** A tiny stage with a sweeping spotlight and a juggler, plus a rotating joke ("Yes-and-ing your answer…"). The first time, the same pop-up asks before downloading the coach and shows the download's progress. "Stop and edit my answer" cancels.
+5. **Feedback.** Your strongest move (quoted from your own words and checked against the transcript), what worked, one thing to try next, a different direction (hidden until you ask), a 3-dimension scorecard, and a sign-off. Then **Next scenario**, **Try again**, **Harder version** or **Copy notes**.
 
 ---
 
@@ -132,8 +133,8 @@ CI runs all three (`.github/workflows/test.yml`).
 | --- | --- | --- |
 | Static checks (`scripts/check.mjs`) | ✅ 29 files | Real |
 | Unit (`tests/unit.test.js`) | ✅ | Real code: modes and rubrics, deck generation and repetition avoidance, scenario validation and safety, feedback validation (incl. fabricated-quote removal and malformed JSON), answer validation, prompt-injection wrapping, state machine and stale tokens, persistence and corruption handling, cache clearing, resampling |
-| Integration (`tests/integration.test.js`) | ✅ (81 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
-| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 13/13 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
+| Integration (`tests/integration.test.js`) | ✅ (85 tests total with unit) | Real controller, coach queue, timeouts, retries, validation, session and store. **Model runtime, transcriber and microphone are fakes** |
+| Browser (`tests/e2e/run_e2e.py`, Chromium) | ✅ 16/16 | Real UI in a real browser. **Model runtimes are fakes** (`tests/e2e/fakes.js`). The mic test uses the **real capture pipeline** (getUserMedia → AudioWorklet → resample) with Chromium's fake audio device. It verifies ~2 s of PCM reached the transcriber, that every mic track ended, and that no network request was made during the audio flow. Also covered: the primary flow, coach-written card labelling, mic denial, no WebGPU, stale-result discard, keyboard-only play with visible focus, settings / dark mode / reduced motion / persistence, favourites and clear, easier/harder, all 6 modes, 375 px mobile with no horizontal overflow, and model output rendered as inert text |
 
 **Not verified in this build environment.** Its network blocks jsDelivr and Hugging Face, so these need a manual check on a real device:
 - [ ] Real Whisper download and transcription quality (`base.en` and `tiny.en`).

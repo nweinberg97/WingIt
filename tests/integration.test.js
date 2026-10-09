@@ -255,6 +255,57 @@ describe('controller: speech handoff', () => {
     assert.ok(rt.calls[0].messages[1].content.includes('And dental.'), 'edited text is what gets evaluated');
   });
 
+  test('Finish sends the transcript straight to the coach', async () => {
+    const tr = new FakeTranscriber(['Ladies and gentlemen, the self-heating ice cube.']);
+    const rt = fakeRuntime({ responses: [goodFeedback('think-fast')] });
+    const { ctl } = makeController({ runtime: rt, transcriber: tr, settings: { scenarioSource: 'deck', livePreview: false } });
+    ctl.startGame('think-fast');
+    await ctl.wakeCoach();
+    await ctl.toggleMic();
+    await ctl.stopRecording();
+    assert.equal(ctl.state.phase, 'feedback', 'no extra click needed');
+    assert.equal(ctl.state.submitted, 'Ladies and gentlemen, the self-heating ice cube.');
+    assert.equal(rt.calls.length, 1);
+  });
+
+  test('Finish with an asleep coach asks to wake it, then sends automatically', async () => {
+    const tr = new FakeTranscriber(['Yes, and the cups are warm.']);
+    const rt = fakeRuntime({ responses: [goodFeedback('yes-and', 'cups are warm')] });
+    const { ctl } = makeController({ runtime: rt, transcriber: tr, settings: { scenarioSource: 'deck', livePreview: false } });
+    ctl.startGame('yes-and');
+    await ctl.toggleMic();
+    await ctl.stopRecording();
+    assert.equal(ctl.state.phase, 'review');
+    assert.equal(ctl.gate, true);
+    await ctl.wakeCoach({ thenSubmit: true });
+    await until(() => ctl.state.phase === 'feedback');
+  });
+
+  test('with "check my transcript" on, Finish stops at the transcript', async () => {
+    const tr = new FakeTranscriber(['Hello moon.']);
+    const rt = fakeRuntime();
+    const { ctl } = makeController({ runtime: rt, transcriber: tr, settings: { scenarioSource: 'deck', livePreview: false, reviewBeforeSend: true } });
+    ctl.startGame();
+    await ctl.wakeCoach();
+    await ctl.toggleMic();
+    await ctl.stopRecording();
+    assert.equal(ctl.state.phase, 'review');
+    assert.equal(ctl.state.transcript, 'Hello moon.');
+    assert.equal(rt.calls.length, 0);
+  });
+
+  test('input mode switches between voice and typing only when idle', async () => {
+    const { ctl } = makeController({ settings: { livePreview: false } });
+    ctl.startGame();
+    ctl.setInputMode('type');
+    assert.equal(ctl.inputMode, 'type');
+    ctl.setInputMode('voice');
+    await ctl.toggleMic();
+    ctl.setInputMode('type');
+    assert.equal(ctl.inputMode, 'voice', 'cannot switch mid-recording');
+    await ctl.cancelRecording();
+  });
+
   test('silence is caught before transcription', async () => {
     const tr = new FakeTranscriber(['should not be used']);
     const { ctl } = makeController({ transcriber: tr, mic: () => new FakeMic({ peak: 0.001 }), settings: { livePreview: false } });
