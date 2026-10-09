@@ -172,6 +172,10 @@ def main():
         page.get_by_role("button", name="Start playing").click()
         check("app still works under the guard", page.locator("#mic-btn").is_visible())
         page.get_by_role("button", name="How we keep you safe").click()
+        try:
+            page.locator(".safety-status", has_text="Safety check is on").wait_for(timeout=10000)
+        except Exception:
+            pass
         status = page.locator(".safety-status").inner_text()
         check("explainer shows the live safety status", "Safety check is on" in status, status)
         page.wait_for_timeout(300)
