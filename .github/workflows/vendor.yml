@@ -23,16 +23,21 @@ jobs:
         with:
           node-version: 22
       - name: Build vendor/ and integrity manifest
-        run: node scripts/vendor.mjs
+        run: |
+          set -o pipefail
+          node scripts/vendor.mjs 2>&1 | tee vendor.log || { echo "::error title=vendor failed::$(tail -c 900 vendor.log | tr '\n' ' ')"; exit 1; }
       - name: Show what changed
         run: |
-          du -sh vendor vendor/* || true
-          git status --short | head -50
+          echo "::notice title=vendor sizes::$(du -sh vendor vendor/* | tr '\n' ' ')"
+          echo "::notice title=manifest::$(node -e "const m=require('./vendor/integrity.json');console.log(Object.keys(m.files).length+' files, version '+m.version)")"
       - name: Commit
         run: |
           git config user.name "wingit-vendor-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add vendor
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
-          git commit -m "Vendor pinned libraries and integrity manifest"
-          git push
+          git commit -q -m "Vendor pinned libraries and integrity manifest"
+          if ! out=$(git push 2>&1); then
+            echo "::error title=push failed::$(echo "$out" | tr '\n' ' ' | cut -c1-900)"
+            exit 1
+          fi
