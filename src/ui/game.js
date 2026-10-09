@@ -300,6 +300,7 @@ export class GameView {
       { role: 'alert' },
       h('p.alert-title', { text: err.title }),
       h('p.alert-body', { text: err.body }),
+      err.detail ? h('details.alert-detail', {}, h('summary', { text: 'Technical details' }), h('p', { text: String(err.detail).slice(0, 400) })) : null,
       h(
         'div.alert-actions',
         {},

@@ -45,7 +45,7 @@ Browser mic ─► AudioWorklet (PCM in memory) ─► resample to 16 kHz ─►
                                        editable transcript ─► Coach (WebLLM, Web Worker, WebGPU) ─► JSON ─► validator ─► UI (textContent only)
 ```
 
-- **No build step, no runtime dependencies.** Plain ES modules, served as static files. The two inference libraries are loaded from jsDelivr at pinned versions, only when needed: `@mlc-ai/web-llm@0.2.85` and `@huggingface/transformers@4.3.1`. Any static host works, including GitHub Pages.
+- **No build step for the app, nothing to install for players.** WingIt's own code is plain ES modules. The two inference libraries (`@mlc-ai/web-llm@0.2.85`, `@huggingface/transformers@4.3.1`), ONNX Runtime's WebAssembly files and the WebLLM model libraries are **served from WingIt's own site** (`vendor/`), rebuilt on every deploy from a committed lockfile and verified against recorded SHA-256 fingerprints. See *Security*.
 - **Speech:** OpenAI Whisper `tiny.en` (≈41 MB) or `base.en` (≈77 MB, the default), using the ONNX q8 builds from `onnx-community`. They run with Transformers.js on ONNX Runtime Web (WASM) in a module worker. WASM was chosen over WebGPU for speech because it works in every modern browser, and these models are small enough that the GPU adds little.
 - **Coach:** WebLLM in a module worker, using WebGPU. The f16 build is used when the GPU supports `shader-f16`; otherwise the f32 build.
 
@@ -84,20 +84,36 @@ Browser mic ─► AudioWorklet (PCM in memory) ─► resample to 16 kHz ─►
 | Microphone audio | In memory: AudioWorklet → main thread → *transferred* (not copied) to the Whisper worker | **Never.** Chunks are cleared on stop, and the PCM buffer is detached when it's handed to the worker | **Never** |
 | Transcript / typed answer | Your browser; evaluated by the local model in a worker | No: answers are not saved | No |
 | Settings, favourite scenarios, round counts and average scores | Your browser | `localStorage` (recent cards: `sessionStorage`) | No |
-| Model files | Downloaded once from Hugging Face / GitHub / jsDelivr | Browser Cache Storage (deletable in Settings) | Download only |
+| Model files | Downloaded once, only after the player agrees: weights from Hugging Face at pinned commits; engine code from WingIt's own site. Every file is checked against its SHA-256 before use | Browser Cache Storage (deletable in Settings) | Download only |
 
 - The mic starts only when you tap it. All tracks are stopped on stop, discard, scenario change, going home, tab hidden, and page close.
-- There are no analytics, trackers or third-party scripts beyond the two pinned inference libraries.
+- There are no analytics, trackers or third-party scripts. All code is served from WingIt's own site.
 - The network *is* used to load the app and, the first time, to download model files. WingIt claims that audio and answers never leave the device, not that the app makes no network requests.
 - The Web Speech API is deliberately **not** used, because some browsers send that audio to a cloud service.
 
 ## Security
-- **Downloaded models are data, not programs.** They are weight files run by the browser's own WebGPU / WebAssembly engines inside the normal web sandbox. They cannot install software, read files, or reach other tabs or apps. They come from the official `mlc-ai` and `onnx-community` repos on Hugging Face.
-- **One remaining trust dependency: the inference libraries load from jsDelivr.** WebLLM and Transformers.js are pinned to exact versions, but if the CDN were ever compromised, that code would run inside WingIt. The meta-tag CSP limits where the page can load from and connect to, but it does not cover the libraries' web workers. Recommended before a wide launch: host those two libraries in this repo (fetched at the pinned versions and checked against hashes) so all code is served from your own origin.
-- A strict CSP is set via a meta tag: `default-src 'self'`; scripts only from self and jsDelivr; `connect-src` limited to the model hosts; no inline scripts or styles; `object-src 'none'`.
-- All model output is validated, length-capped and rendered with `textContent`. No `innerHTML` exists anywhere (`scripts/check.mjs` enforces this).
-- Transcripts are capped at 2,000 characters, stripped of tag-like syntax, and wrapped as data; the system prompt tells the model to ignore instructions inside them. Fabricated quotes are dropped.
-- Generated scenarios pass a safety screen (sexual content, self-harm, real violence, extremism, drugs) and fall back to the deck if they fail. Ordinary conflict, awkwardness, satire and absurdity are allowed.
+
+WingIt's rule: **no file runs unless its fingerprint is on the list.**
+
+| Layer | What it does | Where |
+| --- | --- | --- |
+| Pinned versions | Libraries are locked to exact versions with a committed lockfile. Every model is pinned to one Hugging Face commit, and WebLLM's model libraries to one GitHub commit. | `vendor.config.json`, `vendor/lock/`, `vendor/integrity.json` |
+| Fingerprint list | `vendor/integrity.json` holds the SHA-256 of every third-party file the app may load: 397 files covering the libraries, WebAssembly runtimes, model libraries and every model file. | Generated by `scripts/vendor.mjs pin` (the `vendor` workflow) |
+| Verified deploys | Each deploy rebuilds `vendor/` from the lockfile and **refuses to publish** if any file differs from its recorded fingerprint. | `.github/workflows/pages.yml` → `scripts/vendor.mjs build` |
+| Gatekeeper in the browser | A service worker (`sw.js`) intercepts every request from the page and its workers. A third-party file is handed over only if it's listed and its SHA-256 matches; unlisted or altered files are blocked. Non-download requests to other sites (POST etc.) are blocked, so nothing can be sent out. Saved model files are re-checked whenever the list changes, and mismatches are deleted. | `sw.js`, `src/security/guard.js` |
+| Fail closed | Models load only after the gatekeeper controls the page. If the browser disables service workers (some private modes), voice and feedback stay off rather than loading unchecked. | `src/security/guard.js` |
+| Content Security Policy | Scripts only from WingIt's own site; network connections only to WingIt and Hugging Face; no inline scripts or styles; no frames, objects or form posts. | `index.html` (checked by `scripts/check.mjs`) |
+| Consent | Nothing is downloaded until the player agrees. Sizes and deletion are explained up front. | Setup prompt |
+| Safe output | Model output is schema-validated, length-capped and rendered with `textContent`. No `innerHTML` anywhere (enforced). Transcripts are wrapped as data; the model is told to ignore instructions inside them. Fabricated quotes are dropped. | `src/feedback.js`, `src/prompts.js` |
+| Content safety | Generated scenarios pass a safety screen and fall back to the deck if they fail. | `src/scenario.js` |
+
+**What a model file is.** It's data, a large array of numbers. The browser's own WebGPU and WebAssembly engines do the maths inside the normal web sandbox. A model file can't install software, read files, or reach other tabs or apps.
+
+**Why there is a download at all.** Running the AI on the device means the device must have it, just as a browser downloads any web page before showing it. Hosting the weights on WingIt's own domain wouldn't remove the download; the fingerprint check is what makes the source irrelevant. The only way to avoid a download is server-side inference, which would send players' answers off their device.
+
+**Trust root and honest limits.** The trust root is WingIt's own site: its HTML, JS, `sw.js` and fingerprint list, all served from this repository. No website can promise perfect security; WingIt relies on the browser sandbox like every site does. Updating a pinned version is a deliberate act: edit `vendor.config.json`, which runs the `vendor` workflow and records new fingerprints in a reviewable commit.
+
+The in-app **"Is WingIt safe?"** explainer (linked from the home page, the setup prompt, under the mic and in Settings) says all of this in plain language, with a live readout of the gatekeeper's status.
 
 ---
 
@@ -110,13 +126,17 @@ Open the hosted page in a recent desktop Chrome or Edge, Chrome on Android, or S
 - The choice is remembered. Later visits load from the browser cache in seconds, even offline. **Delete downloaded models** in Settings removes the files and resets the choice, so nothing re-downloads without asking again.
 
 ### Host it (GitHub Pages, free)
-Repository **Settings → Pages → Deploy from a branch → `main` / root**. That's it: no build. The `.nojekyll` file is included.
+1. Repository **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. Every push to `main` runs `.github/workflows/pages.yml`, which rebuilds `vendor/`, verifies every fingerprint and deploys. A mismatch stops the deploy.
+3. To change a pinned version, edit `vendor.config.json` and push. The `vendor` workflow records the new fingerprints in a commit, then redeploys.
 
 ### Run locally
-Any static server works. The page must be served over `http://localhost` or HTTPS for the mic to work; opening it as `file://` won't.
+The page must be served over `http://localhost` or HTTPS for the mic and the safety check to work; opening it as `file://` won't. To run with the real models, build the verified vendor files first (needs network access to npm, GitHub and Hugging Face):
 ```bash
+node scripts/vendor.mjs build    # rebuilds vendor/ and checks every fingerprint
 python3 -m http.server 8080      # then open http://localhost:8080
 ```
+Without `vendor/`, the app runs but voice and feedback stay off, by design.
 
 ### Develop and test
 Node 20+ and Python 3 with Playwright. There is no `npm install` and no runtime dependencies.
@@ -125,8 +145,9 @@ node scripts/check.mjs                 # syntax + project rules (no innerHTML, n
 node --test tests/*.test.js            # unit + integration
 pip install playwright && python3 -m playwright install chromium
 python3 tests/e2e/run_e2e.py           # browser tests (writes screenshots to tests/e2e/screenshots/)
+python3 tests/e2e/run_guard.py         # integrity guard, with a real service worker
 ```
-CI runs all three (`.github/workflows/test.yml`).
+CI runs all of these (`.github/workflows/test.yml`). The `real-models` workflow (run it by hand from the Actions tab) builds the verified site and runs the **real** models in Chromium.
 
 ---
 
@@ -158,11 +179,10 @@ Everything around those calls (prompts, schemas, retries, validation, errors) is
 - The CSP is delivered via a `<meta>` tag because GitHub Pages can't set headers. Hosts that support headers should send the same policy as a header, plus `Permissions-Policy: microphone=(self)`.
 
 ## 7. Next steps
-1. Host WebLLM and Transformers.js in the repo instead of loading them from jsDelivr (removes the last third-party code dependency).
-2. A manual real-device pass across Chrome / Edge / Safari 26 / Android Chrome, then tune prompts on real transcripts.
-3. Self-host a distinctive open-licence display font (OFL) to sharpen the brand without third-party requests.
-4. Add a service worker so the app shell also works fully offline after the first visit.
-5. Add multilingual Whisper (`base`) plus a matching language setting.
+1. A manual real-device pass across Chrome / Edge / Safari 26 / Android Chrome, then tune prompts on real transcripts.
+2. Self-host a distinctive open-licence display font (OFL) to sharpen the brand without third-party requests.
+3. Let the service worker also cache the app shell, so WingIt opens fully offline after the first visit.
+4. Add multilingual Whisper (`base`) plus a matching language setting.
 
 ## Licences
 App code: MIT. Whisper: MIT. Qwen2.5 0.5B/1.5B: Apache-2.0. Phi-3.5 mini: MIT. WebLLM: Apache-2.0. Transformers.js: Apache-2.0. ONNX Runtime Web: MIT.

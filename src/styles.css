@@ -341,6 +341,9 @@ ul, ol { margin: 0; padding: 0; }
 .alert { border: 2px solid var(--coral); border-left-width: 10px; border-radius: var(--radius-s); padding: 12px 14px; background: color-mix(in srgb, var(--coral) 8%, var(--surface)); }
 .alert-title { font-weight: 900; }
 .alert-body { color: var(--ink-2); margin-top: 2px; }
+.alert-detail { margin-top: 6px; font-size: 0.8rem; color: var(--ink-3); }
+.alert-detail summary { cursor: pointer; font-weight: 700; }
+.alert-detail p { font-family: ui-monospace, monospace; word-break: break-word; margin-top: 4px; }
 .alert-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .progress { height: 14px; width: 100%; border: 2px solid var(--ink); border-radius: var(--radius-pill); overflow: hidden; background: var(--surface); }
 .progress span { display: block; height: 100%; width: 0; background: var(--mode); transition: width 300ms ease; }
