@@ -20,6 +20,8 @@ async function ensure(model, revision) {
     lib.env.allowLocalModels = false;
     lib.env.backends.onnx.wasm.wasmPaths = ORT_DIR;
     if (!/^[0-9a-f]{40}$/.test(revision || '')) throw new Error('Speech model is not pinned to an exact version.');
+    // Pin every request to the exact commit (some loaders ignore the `revision` option).
+    lib.env.remotePathTemplate = `{model}/resolve/${revision}/`;
     if (asr?.dispose) await asr.dispose().catch(() => {});
     asr = null;
     asr = await lib.pipeline('automatic-speech-recognition', model, {
