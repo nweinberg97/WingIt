@@ -1,0 +1,41 @@
+name: real-models
+# Smoke test with the REAL models (downloads them; takes a while). Builds the verified site, then
+# speaks a sentence into a fake microphone and checks Whisper transcribes it through the integrity
+# guard. Runs the coach too if the runner offers WebGPU. Run by hand from the Actions tab.
+on:
+  workflow_dispatch:
+    inputs:
+      coach:
+        description: Also try the coach model (needs WebGPU on the runner)
+        default: "1"
+permissions:
+  contents: read
+jobs:
+  real:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Rebuild and verify vendored files
+        run: node scripts/vendor.mjs build
+      - name: Assemble site
+        run: |
+          mkdir -p _site/vendor
+          cp -r index.html sw.js .nojekyll assets src _site/
+          cp -r vendor/* _site/vendor/ && rm -rf _site/vendor/lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser and speech synth
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+          sudo apt-get install -y espeak-ng
+          espeak-ng -s 140 -w speech.wav "The pigeons have formed a union, and they want more bread."
+      - name: Real-model smoke test
+        env:
+          RUN_COACH: ${{ github.event.inputs.coach }}
+        run: python tests/e2e/run_real.py _site speech.wav
