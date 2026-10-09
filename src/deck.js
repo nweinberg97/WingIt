@@ -18,7 +18,7 @@ const pools = {
     'a hotel concierge', 'a nervous best person giving a toast', 'the head of the neighbourhood committee', 'an IKEA-style furniture instruction writer',
   ],
   things: [
-    'a self-heating ice cube', 'a umbrella that only works indoors', 'a GPS that gives directions emotionally', 'a toaster with opinions',
+    'a self-heating ice cube', 'an umbrella that only works indoors', 'a GPS that gives directions emotionally', 'a toaster with opinions',
     'socks that predict the weather', 'a candle that smells like Mondays', 'a fridge that refuses to open after 10 p.m.', 'a pillow that tells bedtime gossip',
     'a doorbell that plays dramatic music', 'a vacuum cleaner afraid of dust', 'a smart mirror that only gives compliments to other people',
     'a bicycle with a sense of direction', 'an alarm clock that negotiates', 'a pen that writes what you meant to say',

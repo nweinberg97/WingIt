@@ -142,7 +142,7 @@ export function openHelp() {
     h('p', { text: 'Pick a mode, read the card, tap the mic and answer out loud. Stop when you\'re done, tidy up the text if the transcription slipped, then get feedback. Shuffle whenever you like.' }),
     h('ul.mode-list', {}, MODES.map((m) => h('li', {}, h('strong', { text: `${m.name}: ` }), m.objective))),
     h('h3', { text: 'Keyboard' }),
-    h('p', { text: 'Tab moves between controls. Space or Enter presses buttons. Ctrl+Enter (or ⌘+Enter) in the answer box gets feedback.' }),
+    h('p', { text: 'Tab moves between controls. Space or Enter presses buttons. Ctrl+Enter (or ⌘+Enter) in the answer box gets feedback. Press S anywhere else to shuffle.' }),
     h('h3', { text: 'Privacy, precisely' }),
     h('ul', {},
       h('li', { text: 'The microphone turns on only when you tap it, and every track is stopped when you stop, discard, change scenario or leave.' }),
