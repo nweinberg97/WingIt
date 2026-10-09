@@ -1,0 +1,1 @@
+{"name":"wingit-vendor","private":true,"type":"module","dependencies":{"@huggingface/transformers":"4.3.1","@mlc-ai/web-llm":"0.2.85","esbuild":"0.25.10"}}
