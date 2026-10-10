@@ -181,4 +181,4 @@ CI runs all of these (`.github/workflows/test.yml`). The `real-models` workflow 
 4. Add multilingual Whisper (`base`) plus a matching language setting.
 
 ## Licences
-App code: MIT. Whisper: MIT. Qwen2.5 0.5B/1.5B: Apache-2.0. Phi-3.5 mini: MIT. WebLLM: Apache-2.0. Transformers.js: Apache-2.0. ONNX Runtime Web: MIT.
+App code: © 2026 Nitai Weinberg, all rights reserved (see `LICENSE`). Whisper: MIT. Qwen2.5 0.5B/1.5B: Apache-2.0. Phi-3.5 mini: MIT. WebLLM: Apache-2.0. Transformers.js: Apache-2.0. ONNX Runtime Web: MIT.
